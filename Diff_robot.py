@@ -23,6 +23,12 @@ class UnicycleRobot:
         updated_state = self.state + dt * x_dot.detach().clone()
         return updated_state.data  
 
+    def integrate_dynamics_for_given_state(self, state, u1, u2, dt):
+        x_dot = self.dynamics(u1, u2)
+        updated_state = [dt*i for i in x_dot.detach().numpy().tolist()] 
+        updated_state= [i + j for i, j in zip(state, updated_state)]
+        return updated_state
+
     def integrate_dynamics(self, u1, u2, dt):
         # Integrate forward in time using Euler method
         x_dot = self.dynamics(u1, u2)

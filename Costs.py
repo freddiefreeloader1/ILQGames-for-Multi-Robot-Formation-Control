@@ -11,6 +11,22 @@ class ProximityCost:
         dist = np.sqrt((x[4*self.idx1] - x[4*self.idx2])**2 + (x[4*self.idx1 + 1] - x[4*self.idx2 + 1])**2)
         return dist if dist > self.d_threshold else 0.0
 
+class ReferenceCost:
+    def __init__(self, d_threshold=0.5, idx = 0, x_ref = np.array([0, 0, 0, 0, 0, 0, 0, 0])):
+        self.idx = idx
+        self.x_ref = x_ref
+
+    def evaluate(self, x, u):
+        dist = np.sqrt((x[4*self.idx] - self.x_ref[4*self.idx])**2 + (x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])**2)
+        return dist
+
+class TrialCost:
+    def __init__(self, d_threshold=0.5):
+        self.d_threshold = 0.5
+    def evaluate(self, x, u):
+        dist = x[0]**2 + x[1]**2 + x[2]**2 + x[3]**2 + x[4]**2 + x[5]**2 + x[6]**2 + x[7]**2
+        return dist
+
 class OverallCost:
     def __init__(self, subsystem_cost_functions):
         self.subsystem_cost_functions = subsystem_cost_functions
@@ -35,19 +51,20 @@ class OverallCost:
         hessian_u = approx_fprime(u, lambda u: self.gradient_u(x, u), epsilon=1e-6)
         return hessian_u
 
+def trial():
+    trial_cost = TrialCost()
+    overall_cost = OverallCost([trial_cost])
 
-overall_cost = OverallCost([ProximityCost(0.5, 0, 1)])
+    x_example = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    u_example = np.array([1, 1])
 
-x_example = np.array([1.0, 2.0, 0.5, 0.0, 2.0, 3.0, 0.0, 0.0])
-u_example = np.array([1, 1])
+    total_cost = overall_cost.evaluate(x_example, u_example)
+    gradient_x = overall_cost.gradient_x(x_example, u_example)
+    hessian_x = overall_cost.hessian_x(x_example, u_example)
+    hessian_u = overall_cost.hessian_u(x_example, u_example)
 
-total_cost = overall_cost.evaluate(x_example, u_example)
-gradient_x = overall_cost.gradient_x(x_example, u_example)
-hessian_x = overall_cost.hessian_x(x_example, u_example)
-hessian_u = overall_cost.hessian_u(x_example, u_example)
-
-print("Total Cost:", total_cost)
-print("Gradient with respect to x:", gradient_x)
-print("Hessian with respect to x:", hessian_x)
-print("Hessian with respect to u:", hessian_u)
+    print("Total Cost:", total_cost)
+    print("Gradient with respect to x:", gradient_x)
+    print("Hessian with respect to x:", hessian_x)
+    print("Hessian with respect to u:", hessian_u)
 

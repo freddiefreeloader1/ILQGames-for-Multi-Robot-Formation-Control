@@ -5,10 +5,10 @@ from scipy.linalg import block_diag
 
 from solve_lq_problem import solve_lq_game
 from Diff_robot import UnicycleRobot
-from Costs import ProximityCost, OverallCost
+from Costs import ProximityCost, OverallCost, ReferenceCost
 
 dt = 0.1
-HORIZON = 10.0
+HORIZON = 3.0
 TIMESTEPS = int(HORIZON / dt)
 
 
@@ -31,22 +31,24 @@ robot2 = UnicycleRobot(x0_2[0], x0_2[1], x0_2[2], x0_2[3])
 
 ProximityCost1 = ProximityCost(0.5, 0, 1)
 ProximityCost2 = ProximityCost(0.5, 1, 0)
+ReferenceCost1 = ReferenceCost(0.5, 0, xref_mp)
+ReferenceCost2 = ReferenceCost(0.5, 1, xref_mp)
 
-overall_cost_1 = OverallCost([ProximityCost1])
-overall_cost_2 = OverallCost([ProximityCost2])
+overall_cost_1 = OverallCost([ReferenceCost1])
+overall_cost_2 = OverallCost([ReferenceCost2])
 
 u1_1 = [0.0] * TIMESTEPS
 u1_2 = [0.0] * TIMESTEPS
 u2_1 = [0.0] * TIMESTEPS
 u2_2 = [0.0] * TIMESTEPS
 
-Q1 = overall_cost_1.hessian_x(xref_mp, [0]*8)
-Q2 = overall_cost_2.hessian_x(xref_mp, [0]*8)
+Q1 = overall_cost_1.hessian_x(x0_mp, [0]*8)
+Q2 = overall_cost_2.hessian_x(x0_mp, [0]*8)
 Q1s = [Q1] * TIMESTEPS
 Q2s = [Q2] * TIMESTEPS
 
-l1 = overall_cost_1.gradient_x(xref_mp, [0]*8)
-l2 = overall_cost_2.gradient_x(xref_mp, [0]*8)
+l1 = overall_cost_1.gradient_x(x0_mp, [0]*8)
+l2 = overall_cost_2.gradient_x(x0_mp, [0]*8)
 l1s = [l1] * TIMESTEPS
 l2s = [l2] * TIMESTEPS
 
@@ -64,8 +66,9 @@ R22s = [R22] * TIMESTEPS
 us_1 = np.zeros((TIMESTEPS, 2))
 us_2 = np.zeros((TIMESTEPS, 2))
 
+total_time_steps = 0
 
-for t in range(200):
+while (np.abs(robot1.state[0].item() - x_ref_1[0]) > 1e-2 and np.abs(robot1.state[1].item() - x_ref_1[1]) > 1e-2 and np.abs(robot2.state[0].item() - x_ref_2[0]) > 1e-2 and np.abs(robot2.state[1].item() - x_ref_2[1]) > 1e-2):
     # Step 1: linearize the system around the operating point
     _, _, A_traj_1, B_traj_1 = robot1.linearize_dynamics_along_trajectory(u1_1, u1_2, dt)
     _, _, A_traj_2, B_traj_2 = robot2.linearize_dynamics_along_trajectory(u2_1, u2_2, dt)
@@ -90,16 +93,21 @@ for t in range(200):
     u2_1 = us_2[:, 0].tolist()
     u2_2 = us_2[:, 1].tolist()
 
-    # update the Q and l values
-    '''for ii in range(TIMESTEPS):
-        Q1s[ii] = overall_cost_1.hessian_x(robot1.state.detach().numpy().tolist() + robot2.state.detach().numpy().tolist(), us_1[ii] + us_2[ii])
-        Q2s[ii] = overall_cost_2.hessian_x(robot1.state.detach().numpy().tolist() + robot2.state.detach().numpy().tolist(), us_2[ii] + us_1[ii])
-        l1s[ii] = overall_cost_1.gradient_x(robot1.state.detach().numpy().tolist() + robot2.state.detach().numpy().tolist(), us_1[ii] + us_2[ii])
-        l2s[ii] = overall_cost_2.gradient_x(robot1.state.detach().numpy().tolist() + robot2.state.detach().numpy().tolist(), us_2[ii] + us_1[ii])'''
-    
     # Update the robot's state
     robot1.integrate_dynamics(us_1[0][0], us_1[0][1], dt)
     robot2.integrate_dynamics(us_2[0][0], us_2[0][1], dt)
+
+    # update the Q and l values
+    states1 = robot1.state.detach().numpy().tolist()  
+    states2 = robot2.state.detach().numpy().tolist()
+    for ii in range(TIMESTEPS):
+        states1 = robot1.integrate_dynamics_for_given_state(states1, us_1[ii][0], us_1[ii][1], dt) 
+        states2 = robot2.integrate_dynamics_for_given_state(states2, us_2[ii][0], us_2[ii][1],dt)
+        states = states1 + states2
+        Q1s[ii] = overall_cost_1.hessian_x(states, us_1[ii] + us_2[ii])
+        Q2s[ii] = overall_cost_2.hessian_x(states, us_1[ii] + us_2[ii])
+        l1s[ii] = overall_cost_1.gradient_x(states, us_1[ii] + us_2[ii])
+        l2s[ii] = overall_cost_2.gradient_x(states, us_1[ii] + us_2[ii])
 
     x_traj_1.append(robot1.state[0].item())
     y_traj_1.append(robot1.state[1].item())
@@ -107,6 +115,7 @@ for t in range(200):
     y_traj_2.append(robot2.state[1].item())
     heading_1.append(robot1.state[2].item())
     heading_2.append(robot2.state[2].item())
+    total_time_steps += 1
 
 plt.ion()
 fig, ax = plt.subplots()
@@ -114,7 +123,7 @@ ax.set_xlim(-4, 4)
 ax.set_ylim(-4, 4)
 ax.grid(True)
 
-for kk in range(200):
+for kk in range(total_time_steps):
     ax.clear()
     ax.grid(True)
     ax.set_xlim(-4, 4)
