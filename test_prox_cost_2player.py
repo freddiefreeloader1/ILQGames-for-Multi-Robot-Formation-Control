@@ -5,6 +5,7 @@ from scipy.linalg import block_diag
 
 from solve_lq_problem import solve_lq_game
 from Diff_robot import UnicycleRobot
+from Costs import ProximityCost, OverallCost
 
 dt = 0.1
 HORIZON = 10.0
@@ -13,6 +14,10 @@ TIMESTEPS = int(HORIZON / dt)
 
 x0_1 = [3.0, 2.0, 3.14, 0.0]
 x0_2 = [-2.0, -2.0, 0.0, 0.0]
+x0_mp = x0_1 + x0_2
+x_ref_1 = np.array([2, 0, 0, 0])
+x_ref_2 = np.array([-1, 0, 0, 0])
+xref_mp = np.concatenate((x_ref_1, x_ref_2))
 
 x_traj_1 = [x0_1[0]]
 y_traj_1 = [x0_1[1]]
@@ -24,19 +29,24 @@ heading_2 = [x0_2[2]]
 robot1 = UnicycleRobot(x0_1[0], x0_1[1], x0_1[2], x0_1[3])
 robot2 = UnicycleRobot(x0_2[0], x0_2[1], x0_2[2], x0_2[3])
 
+ProximityCost1 = ProximityCost(0.5, 0, 1)
+ProximityCost2 = ProximityCost(0.5, 1, 0)
+
+overall_cost_1 = OverallCost([ProximityCost1])
+overall_cost_2 = OverallCost([ProximityCost2])
 
 u1_1 = [0.0] * TIMESTEPS
 u1_2 = [0.0] * TIMESTEPS
 u2_1 = [0.0] * TIMESTEPS
 u2_2 = [0.0] * TIMESTEPS
 
-Q1 = np.diag([4.0, 4.0, 0.0, 0.0])
-Q2 = np.diag([4.0, 4.0, 0.0, 0.0])
+Q1 = overall_cost_1.hessian_x(xref_mp, [0]*8)
+Q2 = overall_cost_2.hessian_x(xref_mp, [0]*8)
 Q1s = [Q1] * TIMESTEPS
 Q2s = [Q2] * TIMESTEPS
 
-l1 = np.zeros((4, 1))
-l2 = np.zeros((4, 1))
+l1 = overall_cost_1.gradient_x(xref_mp, [0]*8)
+l2 = overall_cost_2.gradient_x(xref_mp, [0]*8)
 l1s = [l1] * TIMESTEPS
 l2s = [l2] * TIMESTEPS
 
@@ -49,16 +59,11 @@ R21s = [R21] * TIMESTEPS
 R22 = np.eye(2)
 R22s = [R22] * TIMESTEPS
 
-Q1_concat = [block_diag(Q1, np.zeros((4, 4))) for Q1 in Q1s]
-Q2_concat = [block_diag(np.zeros((4, 4)), Q2) for Q2 in Q2s]
-l1s = [np.concatenate((l1, np.zeros((4, 1))), axis=0) for l1 in l1s]
-l2s = [np.concatenate((np.zeros((4, 1)), l2), axis=0) for l2 in l2s]
+
 
 us_1 = np.zeros((TIMESTEPS, 2))
 us_2 = np.zeros((TIMESTEPS, 2))
 
-x_ref_1 = np.array([2, 0, 0, 0])
-x_ref_2 = np.array([-1, 0, 0, 0])
 
 for t in range(200):
     # Step 1: linearize the system around the operating point
@@ -71,7 +76,7 @@ for t in range(200):
 
     A_traj_mp = [block_diag(A1, A2) for A1, A2 in zip(A_traj_1, A_traj_2)]
     # Step 2: solve the LQ game
-    [Ps_1, Ps_2], [alphas_1, alphas_2] = solve_lq_game(A_traj_mp, [B_traj_1,B_traj_2], [Q1_concat, Q2_concat], [l1s, l2s], [[R11s, R12s], [R21s, R22s]])
+    [Ps_1, Ps_2], [alphas_1, alphas_2] = solve_lq_game(A_traj_mp, [B_traj_1,B_traj_2], [Q1s, Q2s], [l1s, l2s], [[R11s, R12s], [R21s, R22s]])
 
     # Step 3: Update the control inputs
     for ii in range(TIMESTEPS):
@@ -85,6 +90,13 @@ for t in range(200):
     u2_1 = us_2[:, 0].tolist()
     u2_2 = us_2[:, 1].tolist()
 
+    # update the Q and l values
+    '''for ii in range(TIMESTEPS):
+        Q1s[ii] = overall_cost_1.hessian_x(robot1.state.detach().numpy().tolist() + robot2.state.detach().numpy().tolist(), us_1[ii] + us_2[ii])
+        Q2s[ii] = overall_cost_2.hessian_x(robot1.state.detach().numpy().tolist() + robot2.state.detach().numpy().tolist(), us_2[ii] + us_1[ii])
+        l1s[ii] = overall_cost_1.gradient_x(robot1.state.detach().numpy().tolist() + robot2.state.detach().numpy().tolist(), us_1[ii] + us_2[ii])
+        l2s[ii] = overall_cost_2.gradient_x(robot1.state.detach().numpy().tolist() + robot2.state.detach().numpy().tolist(), us_2[ii] + us_1[ii])'''
+    
     # Update the robot's state
     robot1.integrate_dynamics(us_1[0][0], us_1[0][1], dt)
     robot2.integrate_dynamics(us_2[0][0], us_2[0][1], dt)
