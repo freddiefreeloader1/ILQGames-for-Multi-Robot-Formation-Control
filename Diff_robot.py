@@ -7,8 +7,9 @@ import matplotlib.animation as animation
 
 class UnicycleRobot:
 
-    def __init__(self, x0,y0,theta0,v0):
+    def __init__(self, x0,y0,theta0,v0, dt=0.1):
         self.state = torch.tensor([x0, y0, theta0, v0], requires_grad=True)  # (x, y, theta, v)
+        self.dt = dt
 
     def dynamics(self, u1, u2):
         x, y, theta, v  = self.state
@@ -20,24 +21,24 @@ class UnicycleRobot:
 
     def integrate_dynamics_clone(self, u1, u2, dt):
         x_dot = self.dynamics(u1, u2)
-        updated_state = self.state + dt * x_dot.detach().clone()
+        updated_state = self.state + self.dt * x_dot.detach().clone()
         return updated_state.data  
 
     def integrate_dynamics_for_given_state(self, state, u1, u2, dt):
         x_dot = self.dynamics(u1, u2)
-        updated_state = [dt*i for i in x_dot.detach().numpy().tolist()] 
+        updated_state = [self.dt*i for i in x_dot.detach().numpy().tolist()] 
         updated_state= [i + j for i, j in zip(state, updated_state)]
         return updated_state
 
     def integrate_dynamics(self, u1, u2, dt):
         # Integrate forward in time using Euler method
         x_dot = self.dynamics(u1, u2)
-        updated_state = self.state + dt * x_dot.detach().clone()
+        updated_state = self.state + self.dt * x_dot.detach().clone()
         self.state.data =  updated_state.data  # Update state without creating a view
 
     def linearize_autograd(self, x_torch, u_torch):
         
-        updated_state = self.integrate_dynamics_clone(u_torch[0], u_torch[1], dt)
+        updated_state = self.integrate_dynamics_clone(u_torch[0], u_torch[1], self.dt)
 
         A = np.array([[0, 0, updated_state[3].detach().numpy() * -torch.sin(updated_state[2]).item(), torch.cos(updated_state[2]).item()], 
                      [0, 0, updated_state[3].item() * torch.cos(updated_state[2]).item(), torch.sin(updated_state[2]).item()],
@@ -71,7 +72,7 @@ class UnicycleRobot:
 
         for t in range(num_steps):
             # Integrate forward in time
-            updated_state = self.integrate_dynamics_clone(u1_traj[t], u2_traj[t], dt)
+            updated_state = self.integrate_dynamics_clone(u1_traj[t], u2_traj[t], self.dt)
 
             # Linearize at the current state and control
             x_torch = updated_state.clone().detach().requires_grad_(True)
@@ -87,7 +88,7 @@ class UnicycleRobot:
         return np.array(A_list), np.array(B_list), np.array(A_d_list), np.array(B_d_list)
     
 # Example usage:
-robot = UnicycleRobot(0.0,0.0,0.0,0.0)
+""" robot = UnicycleRobot(0.0,0.0,0.0,0.0)
 
 # Define a trajectory of control inputs (v, theta_dot)
 v_trajectory = [0.1]*3
@@ -107,11 +108,11 @@ for t in range(len(A_traj)):
     print(B_traj[t])
 
 
-    """print("Discrete Linearization Matrix A_d:")
+    print("Discrete Linearization Matrix A_d:")
     print(A_d_traj[t])
     print("Discrete Linearization Matrix B_d:")
     print(B_d_traj[t])
-    print("\n")"""
+    print("\n")
 
 
 
@@ -151,4 +152,4 @@ def update(frame):
 # ani = animation.FuncAnimation(fig, update, frames=len(A_d_traj) + 1, interval=dt, blit=True)
 
 # plt.show()
-
+ """

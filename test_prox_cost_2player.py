@@ -12,11 +12,11 @@ HORIZON = 3.0
 TIMESTEPS = int(HORIZON / dt)
 
 
-x0_1 = [3.0, 2.0, 3.14, 0.0]
-x0_2 = [-2.0, -2.0, 0.0, 0.0]
+x0_1 = [-2.0, -2.0, 0.0, 0.0]
+x0_2 = [2.0, 2.0, 3.14, 0.0]
 x0_mp = x0_1 + x0_2
-x_ref_1 = np.array([2, 0, 0, 0])
-x_ref_2 = np.array([-1, 0, 0, 0])
+x_ref_1 = np.array([2, 2, 0, 0])
+x_ref_2 = np.array([-2, -2, 0, 0])
 xref_mp = np.concatenate((x_ref_1, x_ref_2))
 
 x_traj_1 = [x0_1[0]]
@@ -26,16 +26,16 @@ y_traj_2 = [x0_2[1]]
 heading_1 = [x0_1[2]]
 heading_2 = [x0_2[2]]
 
-robot1 = UnicycleRobot(x0_1[0], x0_1[1], x0_1[2], x0_1[3])
-robot2 = UnicycleRobot(x0_2[0], x0_2[1], x0_2[2], x0_2[3])
+robot1 = UnicycleRobot(x0_1[0], x0_1[1], x0_1[2], x0_1[3], dt)
+robot2 = UnicycleRobot(x0_2[0], x0_2[1], x0_2[2], x0_2[3], dt)
 
-ProximityCost1 = ProximityCost(0.5, 0, 1)
-ProximityCost2 = ProximityCost(0.5, 1, 0)
+ProximityCost1 = ProximityCost(0.7, 0, 1, 2)
+ProximityCost2 = ProximityCost(0.7, 1, 0, 2)
 ReferenceCost1 = ReferenceCost(0.5, 0, xref_mp)
 ReferenceCost2 = ReferenceCost(0.5, 1, xref_mp)
 
-overall_cost_1 = OverallCost([ReferenceCost1])
-overall_cost_2 = OverallCost([ReferenceCost2])
+overall_cost_1 = OverallCost([ReferenceCost1, ProximityCost1])
+overall_cost_2 = OverallCost([ReferenceCost2, ProximityCost2])
 
 u1_1 = [0.0] * TIMESTEPS
 u1_2 = [0.0] * TIMESTEPS

@@ -2,14 +2,14 @@ import numpy as np
 from scipy.optimize import approx_fprime
 
 class ProximityCost:
-    def __init__(self, d_threshold=0.5, idx1 = 0, idx2 = 0):
-        self.d_threshold = 0.5 
+    def __init__(self, d_threshold=0.5, idx1 = 0, idx2 = 0, weight = 1.0):
+        self.d_threshold = d_threshold 
         self.idx1 = idx1
         self.idx2 = idx2
-
+        self.weight = weight
     def evaluate(self, x, u):
         dist = np.sqrt((x[4*self.idx1] - x[4*self.idx2])**2 + (x[4*self.idx1 + 1] - x[4*self.idx2 + 1])**2)
-        return dist if dist > self.d_threshold else 0.0
+        return  0.0 if dist > self.d_threshold else self.weight * (self.d_threshold - dist)
 
 class ReferenceCost:
     def __init__(self, d_threshold=0.5, idx = 0, x_ref = np.array([0, 0, 0, 0, 0, 0, 0, 0])):
