@@ -29,8 +29,8 @@ heading_2 = [x0_2[2]]
 robot1 = UnicycleRobot(x0_1[0], x0_1[1], x0_1[2], x0_1[3], dt)
 robot2 = UnicycleRobot(x0_2[0], x0_2[1], x0_2[2], x0_2[3], dt)
 
-ProximityCost1 = ProximityCost(0.7, 0, 1, 2)
-ProximityCost2 = ProximityCost(0.7, 1, 0, 2)
+ProximityCost1 = ProximityCost(1.7, 0, 1, 2)
+ProximityCost2 = ProximityCost(1.7, 1, 0, 2)
 ReferenceCost1 = ReferenceCost(0.5, 0, xref_mp)
 ReferenceCost2 = ReferenceCost(0.5, 1, xref_mp)
 
@@ -52,13 +52,13 @@ l2 = overall_cost_2.gradient_x(x0_mp, [0]*8)
 l1s = [l1] * TIMESTEPS
 l2s = [l2] * TIMESTEPS
 
-R11 = np.eye(2)
+R11 = np.eye(2)*3
 R11s = [R11] * TIMESTEPS
 R12 = np.zeros((2, 2))
 R12s = [R12] * TIMESTEPS
 R21 = np.zeros((2, 2))
 R21s = [R21] * TIMESTEPS
-R22 = np.eye(2)
+R22 = np.eye(2)*3
 R22s = [R22] * TIMESTEPS
 
 
@@ -68,7 +68,7 @@ us_2 = np.zeros((TIMESTEPS, 2))
 
 total_time_steps = 0
 
-while (np.abs(robot1.state[0].item() - x_ref_1[0]) > 1e-2 and np.abs(robot1.state[1].item() - x_ref_1[1]) > 1e-2 and np.abs(robot2.state[0].item() - x_ref_2[0]) > 1e-2 and np.abs(robot2.state[1].item() - x_ref_2[1]) > 1e-2):
+while ((np.abs(robot1.state[0].item() - x_ref_1[0]) > 1e-2 or np.abs(robot1.state[1].item() - x_ref_1[1]) > 1e-2 or np.abs(robot2.state[0].item() - x_ref_2[0]) > 1e-2 or np.abs(robot2.state[1].item() - x_ref_2[1]) > 1e-2)) and (total_time_steps < 200):
     # Step 1: linearize the system around the operating point
     _, _, A_traj_1, B_traj_1 = robot1.linearize_dynamics_along_trajectory(u1_1, u1_2, dt)
     _, _, A_traj_2, B_traj_2 = robot2.linearize_dynamics_along_trajectory(u2_1, u2_2, dt)
@@ -123,19 +123,19 @@ ax.set_xlim(-4, 4)
 ax.set_ylim(-4, 4)
 ax.grid(True)
 
-for kk in range(total_time_steps):
+for kk in range(total_time_steps):    
     ax.clear()
     ax.grid(True)
     ax.set_xlim(-4, 4)
     ax.set_ylim(-4, 4)
-    ax.plot(x_traj_1[:kk + 1], y_traj_1[:kk + 1], 'ro', label='Robot 1')
-    ax.plot(x_traj_2[:kk + 1], y_traj_2[:kk + 1], 'bo', label='Robot 2')
+    ax.plot(x_traj_1[kk], y_traj_1[kk], 'ro', label='Robot 1', markersize=25)
+    ax.plot(x_traj_2[kk], y_traj_2[kk], 'bo', label='Robot 2', markersize=25)
     # put an direction arrow based on the third state of the robot on the dot
     ax.arrow(x_traj_1[kk], y_traj_1[kk], 0.3 * np.cos(heading_1[kk]), 0.3 * np.sin(heading_1[kk]), head_width=0.1)
     ax.arrow(x_traj_2[kk], y_traj_2[kk], 0.3 * np.cos(heading_2[kk]), 0.3 * np.sin(heading_2[kk]), head_width=0.1)
     plt.pause(0.01)
-    fig.canvas.draw()
+    # fig.canvas.draw()
     time.sleep(0.01)
-
+    plt.show()
+    
 plt.ioff()
-plt.show()
