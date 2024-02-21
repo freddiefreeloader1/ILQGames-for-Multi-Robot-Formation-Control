@@ -154,7 +154,7 @@ us_6 = np.zeros((TIMESTEPS, 2))
 
 total_time_steps = 0
 
-while (total_time_steps < 200):
+while (total_time_steps < 100):
     # Step 1: linearize the system around the operating point
     _, _, A_traj_1, B_traj_1 = robot1.linearize_dynamics_along_trajectory(u1_1, u1_2, dt)
     _, _, A_traj_2, B_traj_2 = robot2.linearize_dynamics_along_trajectory(u2_1, u2_2, dt)
@@ -182,10 +182,10 @@ while (total_time_steps < 200):
     for ii in range(TIMESTEPS):
         us_1[ii, :] = -np.transpose(alphas_1[ii]) - Ps_1[ii][1][0:4] @ (robot1.state.detach().numpy() - x_ref_1)
         us_2[ii, :] = -np.transpose(alphas_2[ii]) - Ps_2[ii][1][4:8] @ (robot2.state.detach().numpy() - x_ref_2)
-        us_3[ii, :] = -np.transpose(alphas_1[ii]) - Ps_1[ii][1][8:12] @ (robot3.state.detach().numpy() - x_ref_3)
-        us_4[ii, :] = -np.transpose(alphas_2[ii]) - Ps_2[ii][1][12:16] @ (robot4.state.detach().numpy() - x_ref_4)
-        us_5[ii, :] = -np.transpose(alphas_1[ii]) - Ps_1[ii][1][16:20] @ (robot5.state.detach().numpy() - x_ref_5)
-        us_6[ii, :] = -np.transpose(alphas_2[ii]) - Ps_2[ii][1][20:24] @ (robot6.state.detach().numpy() - x_ref_6)
+        us_3[ii, :] = -np.transpose(alphas_3[ii]) - Ps_3[ii][1][8:12] @ (robot3.state.detach().numpy() - x_ref_3)
+        us_4[ii, :] = -np.transpose(alphas_4[ii]) - Ps_4[ii][1][12:16] @ (robot4.state.detach().numpy() - x_ref_4)
+        us_5[ii, :] = -np.transpose(alphas_5[ii]) - Ps_5[ii][1][16:20] @ (robot5.state.detach().numpy() - x_ref_5)
+        us_6[ii, :] = -np.transpose(alphas_6[ii]) - Ps_6[ii][1][20:24] @ (robot6.state.detach().numpy() - x_ref_6)
 
     # u1_1, u1_2, u2_1, and u2_2 are the first and second columns of us_1 and us_2,
     # make sure to reshape them to be of shape (TIMESTEPS, 1) but in list form
