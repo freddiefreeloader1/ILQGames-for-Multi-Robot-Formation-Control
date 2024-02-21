@@ -11,7 +11,7 @@ HORIZON = 10.0
 TIMESTEPS = int(HORIZON / dt)
 
 
-x0_1 = [3.0, 2.0, 2.0, 0.0]
+x0_1 = [3.0, 2.0, 1.5, 0.0]
 x0_2 = [-2.0, -2.0, 0.0, 0.0]
 
 x_traj_1 = [x0_1[0]]
@@ -29,8 +29,8 @@ u1_2 = [0.0] * TIMESTEPS
 u2_1 = [0.0] * TIMESTEPS
 u2_2 = [0.0] * TIMESTEPS
 
-Q1 = np.diag([1.0, 2.0, 0.0, 0.0])
-Q2 = np.diag([1.0, 2.0, 0.0, 0.0])
+Q1 = np.diag([6.0, 6.0, 0.0, 0.0])
+Q2 = np.diag([4.0, 4.0, 0.0, 0.0])
 Q1s = [Q1] * TIMESTEPS
 Q2s = [Q2] * TIMESTEPS
 
@@ -56,8 +56,8 @@ l2s = [np.concatenate((np.zeros((4, 1)), l2), axis=0) for l2 in l2s]
 us_1 = np.zeros((TIMESTEPS, 2))
 us_2 = np.zeros((TIMESTEPS, 2))
 
-x_ref_1 = np.array([0, 0, 0, 0])
-x_ref_2 = np.array([0, 0, 0, 0])
+x_ref_1 = np.array([2, 0, 0, 0])
+x_ref_2 = np.array([-1, 0, 0, 0])
 
 for t in range(200):
     # Step 1: linearize the system around the operating point
@@ -102,11 +102,15 @@ ax.set_ylim(-4, 4)
 ax.grid(True)
 
 for kk in range(200):
+    ax.clear()
+    ax.grid(True)
+    ax.set_xlim(-4, 4)
+    ax.set_ylim(-4, 4)
     ax.plot(x_traj_1[:kk + 1], y_traj_1[:kk + 1], 'ro', label='Robot 1')
     ax.plot(x_traj_2[:kk + 1], y_traj_2[:kk + 1], 'bo', label='Robot 2')
     # put an direction arrow based on the third state of the robot on the dot
-    ax.arrow(x_traj_1[kk], y_traj_1[kk], 0.5 * np.cos(heading_1[kk]), 0.5 * np.sin(heading_1[kk]), head_width=0.1)
-    ax.arrow(x_traj_2[kk], y_traj_2[kk], 0.1 * np.cos(heading_2[kk]), 0.1 * np.sin(heading_2[kk]), head_width=0.05)
+    ax.arrow(x_traj_1[kk], y_traj_1[kk], 0.3 * np.cos(heading_1[kk]), 0.3 * np.sin(heading_1[kk]), head_width=0.1)
+    ax.arrow(x_traj_2[kk], y_traj_2[kk], 0.3 * np.cos(heading_2[kk]), 0.3 * np.sin(heading_2[kk]), head_width=0.1)
     plt.pause(0.01)
     fig.canvas.draw()
     time.sleep(0.01)
