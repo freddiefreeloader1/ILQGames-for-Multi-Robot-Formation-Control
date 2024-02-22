@@ -70,21 +70,20 @@ ReferenceCost3 = ReferenceCost(0.5, 2, xref_mp)
 ReferenceCost4 = ReferenceCost(0.5, 3, xref_mp)
 ReferenceCost5 = ReferenceCost(0.5, 4, xref_mp)
 ReferenceCost6 = ReferenceCost(0.5, 5, xref_mp)
-
-""" overall_cost_1 = OverallCost([ReferenceCost1, prox_cost_list[0][1], prox_cost_list[0][2], prox_cost_list[0][3], prox_cost_list[0][4], prox_cost_list[0][5]])
+overall_cost_1 = OverallCost([ReferenceCost1, prox_cost_list[0][1], prox_cost_list[0][2], prox_cost_list[0][3], prox_cost_list[0][4], prox_cost_list[0][5]])
 overall_cost_2 = OverallCost([ReferenceCost2, prox_cost_list[1][0], prox_cost_list[1][2], prox_cost_list[1][3], prox_cost_list[1][4], prox_cost_list[1][5]])
 overall_cost_3 = OverallCost([ReferenceCost3, prox_cost_list[2][0], prox_cost_list[2][1], prox_cost_list[2][3], prox_cost_list[2][4], prox_cost_list[2][5]])
 overall_cost_4 = OverallCost([ReferenceCost4, prox_cost_list[3][0], prox_cost_list[3][1], prox_cost_list[3][2], prox_cost_list[3][4], prox_cost_list[3][5]])
 overall_cost_5 = OverallCost([ReferenceCost5, prox_cost_list[4][0], prox_cost_list[4][1], prox_cost_list[4][2], prox_cost_list[4][3], prox_cost_list[4][5]])
 overall_cost_6 = OverallCost([ReferenceCost6, prox_cost_list[5][0], prox_cost_list[5][1], prox_cost_list[5][2], prox_cost_list[5][3], prox_cost_list[5][4]])
 
- """
-overall_cost_1 = OverallCost([ReferenceCost1])
+
+""" overall_cost_1 = OverallCost([ReferenceCost1])
 overall_cost_2 = OverallCost([ReferenceCost2])
 overall_cost_3 = OverallCost([ReferenceCost3])
 overall_cost_4 = OverallCost([ReferenceCost4])
 overall_cost_5 = OverallCost([ReferenceCost5])
-overall_cost_6 = OverallCost([ReferenceCost6])
+overall_cost_6 = OverallCost([ReferenceCost6]) """
 
 u1_1 = [0.0] * TIMESTEPS
 u1_2 = [0.0] * TIMESTEPS
