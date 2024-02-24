@@ -59,10 +59,13 @@ robot5 = UnicycleRobot(x0_5[0], x0_5[1], x0_5[2], x0_5[3], dt)
 robot6 = UnicycleRobot(x0_6[0], x0_6[1], x0_6[2], x0_6[3], dt)
 
 prox_cost_list = [[] for _ in range(6)]
+
 # Ensure prox_cost_list has enough elements
 for i in range(6):
-    while len(prox_cost_list[i]) < 6:
-        prox_cost_list[i].append(ProximityCost(0.4, i, i, 1))
+    for j in range(6):
+        if i != j:
+            prox_cost_list[i].append(ProximityCost(0.6, i, j, 1.0))
+
 
 ReferenceCost1 = ReferenceCost(0.5, 0, xref_mp)
 ReferenceCost2 = ReferenceCost(0.5, 1, xref_mp)
@@ -70,11 +73,11 @@ ReferenceCost3 = ReferenceCost(0.5, 2, xref_mp)
 ReferenceCost4 = ReferenceCost(0.5, 3, xref_mp)
 ReferenceCost5 = ReferenceCost(0.5, 4, xref_mp)
 ReferenceCost6 = ReferenceCost(0.5, 5, xref_mp)
-overall_cost_1 = OverallCost([ReferenceCost1, prox_cost_list[0][1], prox_cost_list[0][2], prox_cost_list[0][3], prox_cost_list[0][4], prox_cost_list[0][5]])
-overall_cost_2 = OverallCost([ReferenceCost2, prox_cost_list[1][0], prox_cost_list[1][2], prox_cost_list[1][3], prox_cost_list[1][4], prox_cost_list[1][5]])
-overall_cost_3 = OverallCost([ReferenceCost3, prox_cost_list[2][0], prox_cost_list[2][1], prox_cost_list[2][3], prox_cost_list[2][4], prox_cost_list[2][5]])
-overall_cost_4 = OverallCost([ReferenceCost4, prox_cost_list[3][0], prox_cost_list[3][1], prox_cost_list[3][2], prox_cost_list[3][4], prox_cost_list[3][5]])
-overall_cost_5 = OverallCost([ReferenceCost5, prox_cost_list[4][0], prox_cost_list[4][1], prox_cost_list[4][2], prox_cost_list[4][3], prox_cost_list[4][5]])
+overall_cost_1 = OverallCost([ReferenceCost1, prox_cost_list[0][0], prox_cost_list[0][1], prox_cost_list[0][2], prox_cost_list[0][3], prox_cost_list[0][4]])
+overall_cost_2 = OverallCost([ReferenceCost2, prox_cost_list[1][0], prox_cost_list[1][1], prox_cost_list[1][2], prox_cost_list[1][3], prox_cost_list[1][4]])
+overall_cost_3 = OverallCost([ReferenceCost3, prox_cost_list[2][0], prox_cost_list[2][1], prox_cost_list[2][2], prox_cost_list[2][3], prox_cost_list[2][4]])
+overall_cost_4 = OverallCost([ReferenceCost4, prox_cost_list[3][0], prox_cost_list[3][1], prox_cost_list[3][2], prox_cost_list[3][3], prox_cost_list[3][4]])
+overall_cost_5 = OverallCost([ReferenceCost5, prox_cost_list[4][0], prox_cost_list[4][1], prox_cost_list[4][2], prox_cost_list[4][3], prox_cost_list[4][4]])
 overall_cost_6 = OverallCost([ReferenceCost6, prox_cost_list[5][0], prox_cost_list[5][1], prox_cost_list[5][2], prox_cost_list[5][3], prox_cost_list[5][4]])
 
 
@@ -128,7 +131,7 @@ l5s = [l5] * TIMESTEPS
 l6s = [l6] * TIMESTEPS
 ls  = [l1s, l2s, l3s, l4s, l5s, l6s]
 
-R_eye = np.eye(2) * 3
+R_eye = np.eye(2) * 20
 R_zeros = np.zeros((2, 2))
 
 R_matrices = [R_eye.copy() for _ in range(TIMESTEPS)]
