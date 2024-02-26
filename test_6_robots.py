@@ -22,11 +22,11 @@ x0_6 = [1.0, 0.0, 0.0, 0.0]
 x0_mp = x0_1 + x0_2 + x0_3 + x0_4 + x0_5 + x0_6
 
 x_ref_1 = np.array([0, 0, 0, 0])
-x_ref_2 = np.array([0, -1, 0, 0])
-x_ref_3 = np.array([0, 1, 0, 0])
-x_ref_4 = np.array([1, 0, 0, 0])
-x_ref_5 = np.array([-1, 0, 0, 0])
-x_ref_6 = np.array([0, -2, 0, 0])
+x_ref_2 = np.array([0, -2, 0, 0])
+x_ref_3 = np.array([0, 2, 0, 0])
+x_ref_4 = np.array([2, 0, 0, 0])
+x_ref_5 = np.array([-2, 0, 0, 0])
+x_ref_6 = np.array([0, -3, 0, 0])
 
 xref_mp = np.concatenate((x_ref_1, x_ref_2, x_ref_3, x_ref_4, x_ref_5, x_ref_6))
 
@@ -131,7 +131,7 @@ l5s = [l5] * TIMESTEPS
 l6s = [l6] * TIMESTEPS
 ls  = [l1s, l2s, l3s, l4s, l5s, l6s]
 
-R_eye = np.eye(2) * 20
+R_eye = np.eye(2) * 6
 R_zeros = np.zeros((2, 2))
 
 R_matrices = [R_eye.copy() for _ in range(TIMESTEPS)]
@@ -156,7 +156,7 @@ us_6 = np.zeros((TIMESTEPS, 2))
 
 total_time_steps = 0
 
-while (total_time_steps < 100):
+while (total_time_steps < 200):
     # Step 1: linearize the system around the operating point
     _, _, A_traj_1, B_traj_1 = robot1.linearize_dynamics_along_trajectory(u1_1, u1_2, dt)
     _, _, A_traj_2, B_traj_2 = robot2.linearize_dynamics_along_trajectory(u2_1, u2_2, dt)

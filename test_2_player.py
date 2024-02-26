@@ -116,6 +116,7 @@ while ((np.abs(robot1.state[0].item() - x_ref_1[0]) > 1e-2 or np.abs(robot1.stat
     heading_1.append(robot1.state[2].item())
     heading_2.append(robot2.state[2].item())
     total_time_steps += 1
+    print(total_time_steps)
 
 plt.ion()
 fig, ax = plt.subplots()
