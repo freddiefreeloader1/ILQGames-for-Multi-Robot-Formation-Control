@@ -6,9 +6,10 @@ from scipy.linalg import block_diag
 from solve_lq_problem import solve_lq_game
 from Diff_robot import UnicycleRobot
 from Costs import ProximityCost, OverallCost, ReferenceCost
+from MultiAgentDynamics import MultiAgentDynamics
 
 dt = 0.1
-HORIZON = 3
+HORIZON = 3.0
 TIMESTEPS = int(HORIZON / dt)
 
 
@@ -26,7 +27,7 @@ x_ref_2 = np.array([0, -2, 0, 0])
 x_ref_3 = np.array([0, 2, 0, 0])
 x_ref_4 = np.array([2, 0, 0, 0])
 x_ref_5 = np.array([-2, 0, 0, 0])
-x_ref_6 = np.array([0, -3, 0, 0])
+x_ref_6 = np.array([0, -1, 0, 0])
 
 xref_mp = np.concatenate((x_ref_1, x_ref_2, x_ref_3, x_ref_4, x_ref_5, x_ref_6))
 
@@ -51,16 +52,18 @@ heading_5 = [x0_5[2]]
 heading_6 = [x0_6[2]]
 
 
-robot1 = UnicycleRobot(x0_1[0], x0_1[1], x0_1[2], x0_1[3], dt)
-robot2 = UnicycleRobot(x0_2[0], x0_2[1], x0_2[2], x0_2[3], dt)
-robot3 = UnicycleRobot(x0_3[0], x0_3[1], x0_3[2], x0_3[3], dt)
-robot4 = UnicycleRobot(x0_4[0], x0_4[1], x0_4[2], x0_4[3], dt)
-robot5 = UnicycleRobot(x0_5[0], x0_5[1], x0_5[2], x0_5[3], dt)
-robot6 = UnicycleRobot(x0_6[0], x0_6[1], x0_6[2], x0_6[3], dt)
+robot1 = UnicycleRobot(x0_1, x_ref_1, dt)
+robot2 = UnicycleRobot(x0_2, x_ref_2, dt)
+robot3 = UnicycleRobot(x0_3, x_ref_3, dt)
+robot4 = UnicycleRobot(x0_4, x_ref_4, dt)
+robot5 = UnicycleRobot(x0_5, x_ref_5, dt)
+robot6 = UnicycleRobot(x0_6, x_ref_6, dt)
+
 
 prox_cost_list = [[] for _ in range(6)]
 
-# Ensure prox_cost_list has enough elements
+mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3, robot4, robot5, robot6], dt)
+
 for i in range(6):
     for j in range(6):
         if i != j:
@@ -101,6 +104,7 @@ u5_2 = [0.0] * TIMESTEPS
 u6_1 = [0.0] * TIMESTEPS
 u6_2 = [0.0] * TIMESTEPS
 
+overall_cost_list = mp_dynamics.define_costs_lists([robot1, robot2, robot3, robot4, robot5, robot6], xref_mp)
 
 Q1 = overall_cost_1.hessian_x(x0_mp, [0]*24)
 Q2 = overall_cost_2.hessian_x(x0_mp, [0]*24)
@@ -131,7 +135,7 @@ l5s = [l5] * TIMESTEPS
 l6s = [l6] * TIMESTEPS
 ls  = [l1s, l2s, l3s, l4s, l5s, l6s]
 
-R_eye = np.eye(2) * 6
+R_eye = np.eye(2)
 R_zeros = np.zeros((2, 2))
 
 R_matrices = [R_eye.copy() for _ in range(TIMESTEPS)]
@@ -157,28 +161,11 @@ us_6 = np.zeros((TIMESTEPS, 2))
 total_time_steps = 0
 
 while (total_time_steps < 200):
-    # Step 1: linearize the system around the operating point
-    _, _, A_traj_1, B_traj_1 = robot1.linearize_dynamics_along_trajectory(u1_1, u1_2, dt)
-    _, _, A_traj_2, B_traj_2 = robot2.linearize_dynamics_along_trajectory(u2_1, u2_2, dt)
-    _, _, A_traj_3, B_traj_3 = robot3.linearize_dynamics_along_trajectory(u3_1, u3_2, dt)
-    _, _, A_traj_4, B_traj_4 = robot4.linearize_dynamics_along_trajectory(u4_1, u4_2, dt)
-    _, _, A_traj_5, B_traj_5 = robot5.linearize_dynamics_along_trajectory(u5_1, u5_2, dt)
-    _, _, A_traj_6, B_traj_6 = robot6.linearize_dynamics_along_trajectory(u6_1, u6_2, dt)
 
-    B_traj_1 = [np.concatenate((B, np.zeros((20, 2))), axis=0) for B in B_traj_1]
-    B_traj_2 = [np.concatenate((np.zeros((4, 2)), B, np.zeros((16,2))), axis=0) for B in B_traj_2]
-    B_traj_3 = [np.concatenate((np.zeros((8, 2)), B, np.zeros((12,2))), axis=0) for B in B_traj_3]
-    B_traj_4 = [np.concatenate((np.zeros((12, 2)), B, np.zeros((8,2))), axis=0) for B in B_traj_4]
-    B_traj_5 = [np.concatenate((np.zeros((16, 2)), B, np.zeros((4,2))), axis=0) for B in B_traj_5]
-    B_traj_6 = [np.concatenate((np.zeros((20, 2)), B), axis=0) for B in B_traj_6]
+    As, Bs = mp_dynamics.get_linearized_dynamics([[u1_1, u1_2], [u2_1, u2_2], [u3_1, u3_2], [u4_1, u4_2], [u5_1, u5_2], [u6_1, u6_2]])
     
-    Bs = [B_traj_1, B_traj_2, B_traj_3, B_traj_4, B_traj_5, B_traj_6]
-    
-    
-
-    A_traj_mp = [block_diag(*A_list) for A_list in zip(A_traj_1, A_traj_2, A_traj_3, A_traj_4, A_traj_5, A_traj_6)]
     # Step 2: solve the LQ game
-    [Ps_1, Ps_2, Ps_3, Ps_4, Ps_5, Ps_6], [alphas_1, alphas_2, alphas_3, alphas_4, alphas_5, alphas_6] = solve_lq_game(A_traj_mp, Bs, Qs, ls, Rs)
+    [Ps_1, Ps_2, Ps_3, Ps_4, Ps_5, Ps_6], [alphas_1, alphas_2, alphas_3, alphas_4, alphas_5, alphas_6] = solve_lq_game(As, Bs, Qs, ls, Rs)
 
     # Step 3: Update the control inputs
     for ii in range(TIMESTEPS):
@@ -236,13 +223,14 @@ while (total_time_steps < 200):
         Q4s[ii] = overall_cost_4.hessian_x(states, us_1[ii] + us_2[ii])
         Q5s[ii] = overall_cost_5.hessian_x(states, us_1[ii] + us_2[ii])
         Q6s[ii] = overall_cost_6.hessian_x(states, us_1[ii] + us_2[ii])
-
+        Qs = [Q1s, Q2s, Q3s, Q4s, Q5s, Q6s]
         l1s[ii] = overall_cost_1.gradient_x(states, us_1[ii] + us_2[ii])
         l2s[ii] = overall_cost_2.gradient_x(states, us_1[ii] + us_2[ii])
         l3s[ii] = overall_cost_3.gradient_x(states, us_1[ii] + us_2[ii])
         l4s[ii] = overall_cost_4.gradient_x(states, us_1[ii] + us_2[ii])
         l5s[ii] = overall_cost_5.gradient_x(states, us_1[ii] + us_2[ii])
         l6s[ii] = overall_cost_6.gradient_x(states, us_1[ii] + us_2[ii])
+        ls = [l1s, l2s, l3s, l4s, l5s, l6s]
 
     x_traj_1.append(robot1.state[0].item())
     y_traj_1.append(robot1.state[1].item())

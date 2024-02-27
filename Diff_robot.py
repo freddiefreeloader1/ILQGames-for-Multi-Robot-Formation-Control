@@ -7,8 +7,10 @@ import matplotlib.animation as animation
 
 class UnicycleRobot:
 
-    def __init__(self, x0,y0,theta0,v0, dt=0.1):
-        self.state = torch.tensor([x0, y0, theta0, v0], requires_grad=True)  # (x, y, theta, v)
+    def __init__(self, x0, xref, dt=0.1):
+        self.x0 = x0
+        self.state = torch.tensor([x0[0], x0[1], x0[2], x0[3]], requires_grad=True)  # (x, y, theta, v)
+        self.xref = xref
         self.dt = dt
 
     def dynamics(self, u1, u2):
