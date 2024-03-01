@@ -42,7 +42,7 @@ class MultiAgentDynamics():
         for i in range(len(self.agent_list)):
             for j in range(len(self.agent_list)):
                 if i != j:
-                    prox_cost_list[i].append(ProximityCost(0.6, i, j, 1.0))
+                    prox_cost_list[i].append(ProximityCost(0.6, i, j, 2.0))
 
         for i in range(len(self.agent_list)):
             wall_cost_list[i].append(WallCost(i, 4.0))
