@@ -26,8 +26,8 @@ y_traj_2 = [x0_2[1]]
 heading_1 = [x0_1[2]]
 heading_2 = [x0_2[2]]
 
-robot1 = UnicycleRobot(x0_1[0], x0_1[1], x0_1[2], x0_1[3], dt)
-robot2 = UnicycleRobot(x0_2[0], x0_2[1], x0_2[2], x0_2[3], dt)
+robot1 = UnicycleRobot(x0_1, dt)
+robot2 = UnicycleRobot(x0_2, dt)
 
 ProximityCost1 = ProximityCost(1.7, 0, 1, 2)
 ProximityCost2 = ProximityCost(1.7, 1, 0, 2)

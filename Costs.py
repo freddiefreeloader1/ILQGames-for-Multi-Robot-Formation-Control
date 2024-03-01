@@ -19,6 +19,32 @@ class ReferenceCost:
     def evaluate(self, x, u):
         dist = np.sqrt((x[4*self.idx] - self.x_ref[4*self.idx])**2 + (x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])**2)
         return dist
+class WallCost:
+    def __init__(self, idx, weight=1.0):
+        self.idx = idx
+        self.weight = weight
+
+    def evaluate(self, x, u):
+        # Assuming the robot state has x and y coordinates at indices 4*self.idx and 4*self.idx + 1
+        x_robot = x[4 * self.idx]
+        y_robot = x[4 * self.idx + 1]
+
+        # Assuming the square has sides of length 7 m and is centered at (0, 0)
+        # You can adjust the coordinates and side length accordingly
+        side_length = 7.0
+        x_center = 0.0
+        y_center = 0.0
+
+        # Calculate the distance to the closest point on the square
+        dx = max(0, abs(x_robot - x_center) - 0.5 * side_length)
+        dy = max(0, abs(y_robot - y_center) - 0.5 * side_length)
+
+        # Calculate the distance penalty
+        dist_penalty = np.sqrt(dx**2 + dy**2)
+
+        return self.weight * dist_penalty
+    
+    
 
 class TrialCost:
     def __init__(self, d_threshold=0.5):

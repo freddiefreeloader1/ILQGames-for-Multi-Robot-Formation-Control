@@ -21,8 +21,8 @@ y_traj_2 = [x0_2[1]]
 heading_1 = [x0_1[2]]
 heading_2 = [x0_2[2]]
 
-robot1 = UnicycleRobot(x0_1[0], x0_1[1], x0_1[2], x0_1[3])
-robot2 = UnicycleRobot(x0_2[0], x0_2[1], x0_2[2], x0_2[3])
+robot1 = UnicycleRobot(x0_1)
+robot2 = UnicycleRobot(x0_2)
 
 
 u1_1 = [0.0] * TIMESTEPS

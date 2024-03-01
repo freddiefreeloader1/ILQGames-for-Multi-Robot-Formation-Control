@@ -20,7 +20,6 @@ x0_4 = [-2.0, 3.0, 0.0, 0.0]
 x0_5 = [0.0, 1.0, 0.0, 0.0]
 x0_6 = [1.0, 0.0, 0.0, 0.0]
 
-x0_mp = x0_1 + x0_2 + x0_3 + x0_4 + x0_5 + x0_6
 
 x_ref_1 = np.array([0, 0, 0, 0])
 x_ref_2 = np.array([0, -2, 0, 0])
@@ -28,28 +27,6 @@ x_ref_3 = np.array([0, 2, 0, 0])
 x_ref_4 = np.array([2, 0, 0, 0])
 x_ref_5 = np.array([-2, 0, 0, 0])
 x_ref_6 = np.array([0, -1, 0, 0])
-
-xref_mp = np.concatenate((x_ref_1, x_ref_2, x_ref_3, x_ref_4, x_ref_5, x_ref_6))
-
-x_traj_1 = [x0_1[0]]
-y_traj_1 = [x0_1[1]]
-x_traj_2 = [x0_2[0]]
-y_traj_2 = [x0_2[1]]
-x_traj_3 = [x0_3[0]]
-y_traj_3 = [x0_3[1]]
-x_traj_4 = [x0_4[0]]
-y_traj_4 = [x0_4[1]]
-x_traj_5 = [x0_5[0]]
-y_traj_5 = [x0_5[1]]
-x_traj_6 = [x0_6[0]]
-y_traj_6 = [x0_6[1]]
-
-heading_1 = [x0_1[2]]
-heading_2 = [x0_2[2]]
-heading_3 = [x0_3[2]]
-heading_4 = [x0_4[2]]
-heading_5 = [x0_5[2]]
-heading_6 = [x0_6[2]]
 
 
 robot1 = UnicycleRobot(x0_1, x_ref_1, dt)
@@ -60,197 +37,69 @@ robot5 = UnicycleRobot(x0_5, x_ref_5, dt)
 robot6 = UnicycleRobot(x0_6, x_ref_6, dt)
 
 
-prox_cost_list = [[] for _ in range(6)]
+# mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3, robot4, robot5, robot6], dt, HORIZON)
+mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3], dt, HORIZON)
 
-mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3, robot4, robot5, robot6], dt)
+costs = mp_dynamics.define_costs_lists()
 
-for i in range(6):
-    for j in range(6):
-        if i != j:
-            prox_cost_list[i].append(ProximityCost(0.6, i, j, 1.0))
+x_traj = [[] for _ in range(mp_dynamics.num_agents)]
+y_traj = [[] for _ in range(mp_dynamics.num_agents)]
+headings = [[] for _ in range(mp_dynamics.num_agents)]
 
+ls = []
+Qs = []
 
-ReferenceCost1 = ReferenceCost(0.5, 0, xref_mp)
-ReferenceCost2 = ReferenceCost(0.5, 1, xref_mp)
-ReferenceCost3 = ReferenceCost(0.5, 2, xref_mp)
-ReferenceCost4 = ReferenceCost(0.5, 3, xref_mp)
-ReferenceCost5 = ReferenceCost(0.5, 4, xref_mp)
-ReferenceCost6 = ReferenceCost(0.5, 5, xref_mp)
-overall_cost_1 = OverallCost([ReferenceCost1, prox_cost_list[0][0], prox_cost_list[0][1], prox_cost_list[0][2], prox_cost_list[0][3], prox_cost_list[0][4]])
-overall_cost_2 = OverallCost([ReferenceCost2, prox_cost_list[1][0], prox_cost_list[1][1], prox_cost_list[1][2], prox_cost_list[1][3], prox_cost_list[1][4]])
-overall_cost_3 = OverallCost([ReferenceCost3, prox_cost_list[2][0], prox_cost_list[2][1], prox_cost_list[2][2], prox_cost_list[2][3], prox_cost_list[2][4]])
-overall_cost_4 = OverallCost([ReferenceCost4, prox_cost_list[3][0], prox_cost_list[3][1], prox_cost_list[3][2], prox_cost_list[3][3], prox_cost_list[3][4]])
-overall_cost_5 = OverallCost([ReferenceCost5, prox_cost_list[4][0], prox_cost_list[4][1], prox_cost_list[4][2], prox_cost_list[4][3], prox_cost_list[4][4]])
-overall_cost_6 = OverallCost([ReferenceCost6, prox_cost_list[5][0], prox_cost_list[5][1], prox_cost_list[5][2], prox_cost_list[5][3], prox_cost_list[5][4]])
+for i in range(mp_dynamics.num_agents):
+    Qs.append([costs[i][0].hessian_x(mp_dynamics.x0_mp, [0]*mp_dynamics.num_agents*4)]*mp_dynamics.TIMESTEPS)
+    ls.append([costs[i][0].gradient_x(mp_dynamics.x0_mp, [0]*mp_dynamics.num_agents*4)]*mp_dynamics.TIMESTEPS)
 
-
-""" overall_cost_1 = OverallCost([ReferenceCost1])
-overall_cost_2 = OverallCost([ReferenceCost2])
-overall_cost_3 = OverallCost([ReferenceCost3])
-overall_cost_4 = OverallCost([ReferenceCost4])
-overall_cost_5 = OverallCost([ReferenceCost5])
-overall_cost_6 = OverallCost([ReferenceCost6]) """
-
-u1_1 = [0.0] * TIMESTEPS
-u1_2 = [0.0] * TIMESTEPS
-u2_1 = [0.0] * TIMESTEPS
-u2_2 = [0.0] * TIMESTEPS
-u3_1 = [0.0] * TIMESTEPS
-u3_2 = [0.0] * TIMESTEPS
-u4_1 = [0.0] * TIMESTEPS
-u4_2 = [0.0] * TIMESTEPS
-u5_1 = [0.0] * TIMESTEPS
-u5_2 = [0.0] * TIMESTEPS
-u6_1 = [0.0] * TIMESTEPS
-u6_2 = [0.0] * TIMESTEPS
-
-overall_cost_list = mp_dynamics.define_costs_lists([robot1, robot2, robot3, robot4, robot5, robot6], xref_mp)
-
-Q1 = overall_cost_1.hessian_x(x0_mp, [0]*24)
-Q2 = overall_cost_2.hessian_x(x0_mp, [0]*24)
-Q3 = overall_cost_3.hessian_x(x0_mp, [0]*24)
-Q4 = overall_cost_4.hessian_x(x0_mp, [0]*24)
-Q5 = overall_cost_5.hessian_x(x0_mp, [0]*24)
-Q6 = overall_cost_6.hessian_x(x0_mp, [0]*24)
-
-Q1s = [Q1] * TIMESTEPS
-Q2s = [Q2] * TIMESTEPS
-Q3s = [Q3] * TIMESTEPS
-Q4s = [Q4] * TIMESTEPS
-Q5s = [Q5] * TIMESTEPS
-Q6s = [Q6] * TIMESTEPS
-Qs = [Q1s, Q2s, Q3s, Q4s, Q5s, Q6s]
-l1 = overall_cost_1.gradient_x(x0_mp, [0]*24)
-l2 = overall_cost_2.gradient_x(x0_mp, [0]*24)
-l3 = overall_cost_3.gradient_x(x0_mp, [0]*24)
-l4 = overall_cost_4.gradient_x(x0_mp, [0]*24)
-l5 = overall_cost_5.gradient_x(x0_mp, [0]*24)
-l6 = overall_cost_6.gradient_x(x0_mp, [0]*24)
-
-l1s = [l1] * TIMESTEPS
-l2s = [l2] * TIMESTEPS
-l3s = [l3] * TIMESTEPS
-l4s = [l4] * TIMESTEPS
-l5s = [l5] * TIMESTEPS
-l6s = [l6] * TIMESTEPS
-ls  = [l1s, l2s, l3s, l4s, l5s, l6s]
-
-R_eye = np.eye(2)
-R_zeros = np.zeros((2, 2))
-
-R_matrices = [R_eye.copy() for _ in range(TIMESTEPS)]
-Z_matrices = [R_zeros.copy() for _ in range(TIMESTEPS)]
-
-R11s, R22s, R33s, R44s, R55s, R66s = R_matrices, R_matrices, R_matrices, R_matrices, R_matrices, R_matrices
-R12s, R13s, R14s, R15s, R16s = Z_matrices, Z_matrices, Z_matrices, Z_matrices, Z_matrices
-R21s, R23s, R24s, R25s, R26s = Z_matrices, Z_matrices, Z_matrices, Z_matrices, Z_matrices
-R31s, R32s, R34s, R35s, R36s = Z_matrices, Z_matrices, Z_matrices, Z_matrices, Z_matrices
-R41s, R42s, R43s, R45s, R46s = Z_matrices, Z_matrices, Z_matrices, Z_matrices, Z_matrices
-R51s, R52s, R53s, R54s, R56s = Z_matrices, Z_matrices, Z_matrices, Z_matrices, Z_matrices
-R61s, R62s, R63s, R64s, R65s = Z_matrices, Z_matrices, Z_matrices, Z_matrices, Z_matrices
-
-Rs = [[R11s, R12s, R13s, R14s, R15s, R16s], [R21s, R22s, R23s, R24s, R25s, R26s], [R31s, R32s, R33s, R34s, R35s, R36s], [R41s, R42s, R43s, R44s, R45s, R46s], [R51s, R52s, R53s, R54s, R55s, R56s], [R61s, R62s, R63s, R64s, R65s, R66s]]
-
-us_1 = np.zeros((TIMESTEPS, 2))
-us_2 = np.zeros((TIMESTEPS, 2))
-us_3 = np.zeros((TIMESTEPS, 2))
-us_4 = np.zeros((TIMESTEPS, 2))
-us_5 = np.zeros((TIMESTEPS, 2))
-us_6 = np.zeros((TIMESTEPS, 2))
+Rs = mp_dynamics.get_control_cost_matrix()
 
 total_time_steps = 0
+reshaped_inputs = mp_dynamics.reshape_control_inputs()
 
 while (total_time_steps < 200):
 
-    As, Bs = mp_dynamics.get_linearized_dynamics([[u1_1, u1_2], [u2_1, u2_2], [u3_1, u3_2], [u4_1, u4_2], [u5_1, u5_2], [u6_1, u6_2]])
+    As, Bs = mp_dynamics.get_linearized_dynamics(reshaped_inputs)
     
     # Step 2: solve the LQ game
-    [Ps_1, Ps_2, Ps_3, Ps_4, Ps_5, Ps_6], [alphas_1, alphas_2, alphas_3, alphas_4, alphas_5, alphas_6] = solve_lq_game(As, Bs, Qs, ls, Rs)
+    Ps, alphas = solve_lq_game(As, Bs, Qs, ls, Rs)
 
     # Step 3: Update the control inputs
     for ii in range(TIMESTEPS):
-        us_1[ii, :] = -np.transpose(alphas_1[ii]) - Ps_1[ii][1][0:4] @ (robot1.state.detach().numpy() - x_ref_1)
-        us_2[ii, :] = -np.transpose(alphas_2[ii]) - Ps_2[ii][1][4:8] @ (robot2.state.detach().numpy() - x_ref_2)
-        us_3[ii, :] = -np.transpose(alphas_3[ii]) - Ps_3[ii][1][8:12] @ (robot3.state.detach().numpy() - x_ref_3)
-        us_4[ii, :] = -np.transpose(alphas_4[ii]) - Ps_4[ii][1][12:16] @ (robot4.state.detach().numpy() - x_ref_4)
-        us_5[ii, :] = -np.transpose(alphas_5[ii]) - Ps_5[ii][1][16:20] @ (robot5.state.detach().numpy() - x_ref_5)
-        us_6[ii, :] = -np.transpose(alphas_6[ii]) - Ps_6[ii][1][20:24] @ (robot6.state.detach().numpy() - x_ref_6)
+        mp_dynamics.compute_control_vector(Ps, alphas)
 
-    # u1_1, u1_2, u2_1, and u2_2 are the first and second columns of us_1 and us_2,
-    # make sure to reshape them to be of shape (TIMESTEPS, 1) but in list form
-    u1_1 = us_1[:, 0].tolist()
-    u1_2 = us_1[:, 1].tolist()
-    u2_1 = us_2[:, 0].tolist()
-    u2_2 = us_2[:, 1].tolist()
-    u3_1 = us_3[:, 0].tolist()
-    u3_2 = us_3[:, 1].tolist()
-    u4_1 = us_4[:, 0].tolist()
-    u4_2 = us_4[:, 1].tolist()
-    u5_1 = us_5[:, 0].tolist()
-    u5_2 = us_5[:, 1].tolist()
-    u6_1 = us_6[:, 0].tolist()
-    u6_2 = us_6[:, 1].tolist()
-
+    reshaped_inputs = mp_dynamics.reshape_control_inputs()
 
     # Update the robot's state
-    robot1.integrate_dynamics(us_1[0][0], us_1[0][1], dt)
-    robot2.integrate_dynamics(us_2[0][0], us_2[0][1], dt)
-    robot3.integrate_dynamics(us_3[0][0], us_3[0][1], dt)
-    robot4.integrate_dynamics(us_4[0][0], us_4[0][1], dt)
-    robot5.integrate_dynamics(us_5[0][0], us_5[0][1], dt)
-    robot6.integrate_dynamics(us_6[0][0], us_6[0][1], dt)
+    mp_dynamics.integrate_dynamics()
 
     # update the Q and l values
-    states1 = robot1.state.detach().numpy().tolist()  
-    states2 = robot2.state.detach().numpy().tolist()
-    states3 = robot3.state.detach().numpy().tolist()
-    states4 = robot4.state.detach().numpy().tolist()
-    states5 = robot5.state.detach().numpy().tolist()
-    states6 = robot6.state.detach().numpy().tolist()
+    states = [robot.state.detach().numpy().tolist() for robot in mp_dynamics.agent_list]
 
-    for ii in range(TIMESTEPS):
-        states1 = robot1.integrate_dynamics_for_given_state(states1, us_1[ii][0], us_1[ii][1],dt) 
-        states2 = robot2.integrate_dynamics_for_given_state(states2, us_2[ii][0], us_2[ii][1],dt)
-        states3 = robot3.integrate_dynamics_for_given_state(states3, us_3[ii][0], us_3[ii][1],dt)
-        states4 = robot4.integrate_dynamics_for_given_state(states4, us_4[ii][0], us_4[ii][1],dt)
-        states5 = robot5.integrate_dynamics_for_given_state(states5, us_5[ii][0], us_5[ii][1],dt)
-        states6 = robot6.integrate_dynamics_for_given_state(states6, us_6[ii][0], us_6[ii][1],dt)
+    # Initialize Qs and ls lists
+    Qs = [[] for _ in range(mp_dynamics.num_agents)]
+    ls = [[] for _ in range(mp_dynamics.num_agents)]
 
-        states = states1 + states2 + states3 + states4 + states5 + states6
-        Q1s[ii] = overall_cost_1.hessian_x(states, us_1[ii] + us_2[ii])
-        Q2s[ii] = overall_cost_2.hessian_x(states, us_1[ii] + us_2[ii])
-        Q3s[ii] = overall_cost_3.hessian_x(states, us_1[ii] + us_2[ii])
-        Q4s[ii] = overall_cost_4.hessian_x(states, us_1[ii] + us_2[ii])
-        Q5s[ii] = overall_cost_5.hessian_x(states, us_1[ii] + us_2[ii])
-        Q6s[ii] = overall_cost_6.hessian_x(states, us_1[ii] + us_2[ii])
-        Qs = [Q1s, Q2s, Q3s, Q4s, Q5s, Q6s]
-        l1s[ii] = overall_cost_1.gradient_x(states, us_1[ii] + us_2[ii])
-        l2s[ii] = overall_cost_2.gradient_x(states, us_1[ii] + us_2[ii])
-        l3s[ii] = overall_cost_3.gradient_x(states, us_1[ii] + us_2[ii])
-        l4s[ii] = overall_cost_4.gradient_x(states, us_1[ii] + us_2[ii])
-        l5s[ii] = overall_cost_5.gradient_x(states, us_1[ii] + us_2[ii])
-        l6s[ii] = overall_cost_6.gradient_x(states, us_1[ii] + us_2[ii])
-        ls = [l1s, l2s, l3s, l4s, l5s, l6s]
+    # Iterate over timesteps
+    for ii in range(mp_dynamics.TIMESTEPS):
+        # Integrate dynamics for each robot
+        for i, robot in enumerate(mp_dynamics.agent_list):
+            states[i] = robot.integrate_dynamics_for_given_state(states[i], mp_dynamics.us[i][ii][0], mp_dynamics.us[i][ii][1], mp_dynamics.dt)
 
-    x_traj_1.append(robot1.state[0].item())
-    y_traj_1.append(robot1.state[1].item())
-    x_traj_2.append(robot2.state[0].item())
-    y_traj_2.append(robot2.state[1].item())
-    x_traj_3.append(robot3.state[0].item())
-    y_traj_3.append(robot3.state[1].item())
-    x_traj_4.append(robot4.state[0].item())
-    y_traj_4.append(robot4.state[1].item())
-    x_traj_5.append(robot5.state[0].item())
-    y_traj_5.append(robot5.state[1].item())
-    x_traj_6.append(robot6.state[0].item())
-    y_traj_6.append(robot6.state[1].item())
+        # Concatenate states of all robots
+        concatenated_states = [val for sublist in states for val in sublist]
 
-    heading_1.append(robot1.state[2].item())
-    heading_2.append(robot2.state[2].item())
-    heading_3.append(robot3.state[2].item())
-    heading_4.append(robot4.state[2].item())
-    heading_5.append(robot5.state[2].item())
-    heading_6.append(robot6.state[2].item())
+        # Compute Hessian and gradients for each robot
+        for i, robot in enumerate(mp_dynamics.agent_list):
+            Qs[i].append(costs[i][0].hessian_x(concatenated_states, mp_dynamics.us[i][ii]))
+            ls[i].append(costs[i][0].gradient_x(concatenated_states, mp_dynamics.us[i][ii]))
+
+    # Append the states to the trajectory lists
+    for i, robot in enumerate(mp_dynamics.agent_list):
+        x_traj[i].append(robot.state[0].item())
+        y_traj[i].append(robot.state[1].item())
+        headings[i].append(robot.state[2].item())
 
     total_time_steps += 1
     print(total_time_steps)
@@ -260,29 +109,19 @@ fig, ax = plt.subplots()
 ax.set_xlim(-4, 4)
 ax.set_ylim(-4, 4)
 ax.grid(True)
+colors = ['ro', 'go', 'bo', 'co', 'mo', 'yo']
 
 for kk in range(total_time_steps):    
     ax.clear()
     ax.grid(True)
     ax.set_xlim(-4, 4)
     ax.set_ylim(-4, 4)
-    ax.plot(x_traj_1[kk], y_traj_1[kk], 'ro', label='Robot 1', markersize=25)
-    ax.plot(x_traj_2[kk], y_traj_2[kk], 'bo', label='Robot 2', markersize=25)
-    ax.plot(x_traj_3[kk], y_traj_3[kk], 'go', label='Robot 3', markersize=25)
-    ax.plot(x_traj_4[kk], y_traj_4[kk], 'yo', label='Robot 4', markersize=25)
-    ax.plot(x_traj_5[kk], y_traj_5[kk], 'mo', label='Robot 5', markersize=25)
-    ax.plot(x_traj_6[kk], y_traj_6[kk], 'co', label='Robot 6', markersize=25)
 
-    # put an direction arrow based on the third state of the robot on the dot
-    ax.arrow(x_traj_1[kk], y_traj_1[kk], 0.3 * np.cos(heading_1[kk]), 0.3 * np.sin(heading_1[kk]), head_width=0.1)
-    ax.arrow(x_traj_2[kk], y_traj_2[kk], 0.3 * np.cos(heading_2[kk]), 0.3 * np.sin(heading_2[kk]), head_width=0.1)
-    ax.arrow(x_traj_3[kk], y_traj_3[kk], 0.3 * np.cos(heading_3[kk]), 0.3 * np.sin(heading_3[kk]), head_width=0.1)
-    ax.arrow(x_traj_4[kk], y_traj_4[kk], 0.3 * np.cos(heading_4[kk]), 0.3 * np.sin(heading_4[kk]), head_width=0.1)
-    ax.arrow(x_traj_5[kk], y_traj_5[kk], 0.3 * np.cos(heading_5[kk]), 0.3 * np.sin(heading_5[kk]), head_width=0.1)
-    ax.arrow(x_traj_6[kk], y_traj_6[kk], 0.3 * np.cos(heading_6[kk]), 0.3 * np.sin(heading_6[kk]), head_width=0.1)
+    for i in range(mp_dynamics.num_agents):
+        ax.plot(x_traj[i][kk], y_traj[i][kk], colors[i], label=f'Robot {i}', markersize=25)
+        ax.arrow(x_traj[i][kk], y_traj[i][kk], 0.3 * np.cos(headings[i][kk]), 0.3 * np.sin(headings[i][kk]), head_width=0.1)
 
     plt.pause(0.01)
-    # fig.canvas.draw()
     time.sleep(0.01)
     plt.show()
     
