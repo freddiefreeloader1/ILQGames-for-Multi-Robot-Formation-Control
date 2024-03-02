@@ -12,13 +12,22 @@ class ProximityCost:
         return  0.0 if dist > self.d_threshold else self.weight * (self.d_threshold - dist)
 
 class ReferenceCost:
-    def __init__(self, d_threshold=0.5, idx = 0, x_ref = np.array([0, 0, 0, 0, 0, 0, 0, 0])):
+    def __init__(self, idx = 0, x_ref = np.array([0, 0, 0, 0, 0, 0, 0, 0]), weight = 1.0):
         self.idx = idx
         self.x_ref = x_ref
+        self.weight = weight
 
     def evaluate(self, x, u):
-        dist = np.sqrt((x[4*self.idx] - self.x_ref[4*self.idx])**2 + (x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])**2)
-        return dist
+        dist = np.sqrt((x[4*self.idx] - self.x_ref[4*self.idx])**2 + (x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])**2 + (x[4*self.idx + 3] - self.x_ref[4*self.idx + 3])**2)
+        return dist * self.weight
+
+class InputCost:
+    def __init__(self, idx, weight=1.0):
+        self.weight = weight
+        self.idx = idx
+    def evaluate(self, x, u):
+        return self.weight * (u[0]**2 + 10*u[1]**2)
+
 class WallCost:
     def __init__(self, idx, weight=1.0):
         self.idx = idx
@@ -76,6 +85,7 @@ class OverallCost:
     def hessian_u(self, x, u):
         hessian_u = approx_fprime(u, lambda u: self.gradient_u(x, u), epsilon=1e-6)
         return hessian_u
+    
 
 def trial():
     trial_cost = TrialCost()

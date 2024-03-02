@@ -38,7 +38,7 @@ robot6 = UnicycleRobot(x0_6, x_ref_6, dt)
 
 
 # mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3, robot4, robot5, robot6], dt, HORIZON)
-mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3], dt, HORIZON)
+mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3, robot4], dt, HORIZON)
 
 costs = mp_dynamics.define_costs_lists()
 
@@ -57,52 +57,74 @@ Rs = mp_dynamics.get_control_cost_matrix()
 
 total_time_steps = 0
 reshaped_inputs = mp_dynamics.reshape_control_inputs()
+flag = 0
+# define ksi as [[[state1],[state2]]...,[[input1], [input2]]]
 
-while (total_time_steps < 200):
+ksi = [[[] for agent in mp_dynamics.agent_list], [[0,0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]]
 
-    As, Bs = mp_dynamics.get_linearized_dynamics(reshaped_inputs)
+try:
+    while (flag == 0):
+
+
+        As, Bs = mp_dynamics.get_linearized_dynamics(reshaped_inputs)
+
+        # update the Q and l values
+        states = [robot.state.detach().numpy().tolist() for robot in mp_dynamics.agent_list]
+        # Initialize Qs and ls lists
+        Qs = [[] for _ in range(mp_dynamics.num_agents)]
+        ls = [[] for _ in range(mp_dynamics.num_agents)]
+
+        # Iterate over timesteps
+        for ii in range(mp_dynamics.TIMESTEPS):
+            # Integrate dynamics for each robot
+            for i, robot in enumerate(mp_dynamics.agent_list):
+                states[i] = robot.integrate_dynamics_for_given_state(states[i], mp_dynamics.us[i][ii][0], mp_dynamics.us[i][ii][1], mp_dynamics.dt)
+                ksi[0][i].append(states[i])
+            # Concatenate states of all robots
+            concatenated_states = [val for sublist in states for val in sublist]
+
+            # Compute Hessian and gradients for each robot
+            for i, robot in enumerate(mp_dynamics.agent_list):
+                Qs[i].append(costs[i][0].hessian_x(concatenated_states, mp_dynamics.us[i][ii]))
+                ls[i].append(costs[i][0].gradient_x(concatenated_states, mp_dynamics.us[i][ii]))
+
+        # Step 2: solve the LQ game
+        Ps, alphas = solve_lq_game(As, Bs, Qs, ls, Rs)
+
+        # Step 3: Update the control inputs
+
+
+        # Update the robot's state
+        mp_dynamics.integrate_dynamics()
+
+        mp_dynamics.compute_control_vector(Ps, alphas, ksi)
+
+        for i, agent in enumerate(mp_dynamics.agent_list):
+            ksi[1][i] = mp_dynamics.compute_control_vector(Ps, alphas, ksi)[i]
+
+        reshaped_inputs = mp_dynamics.reshape_control_inputs()
+
+        dist = []
     
-    # Step 2: solve the LQ game
-    Ps, alphas = solve_lq_game(As, Bs, Qs, ls, Rs)
+        for robot in mp_dynamics.agent_list:
+            dist.append(np.sqrt(np.linalg.norm(robot.state[0:2].detach().numpy() - robot.xref[0:2])))
+        
+        print(dist)
+        # check all elements of dist are smaller than 
+        if all(d < 0.3 for d in dist):
+            flag = 1
 
-    # Step 3: Update the control inputs
-    for ii in range(TIMESTEPS):
-        mp_dynamics.compute_control_vector(Ps, alphas)
-
-    reshaped_inputs = mp_dynamics.reshape_control_inputs()
-
-    # Update the robot's state
-    mp_dynamics.integrate_dynamics()
-
-    # update the Q and l values
-    states = [robot.state.detach().numpy().tolist() for robot in mp_dynamics.agent_list]
-
-    # Initialize Qs and ls lists
-    Qs = [[] for _ in range(mp_dynamics.num_agents)]
-    ls = [[] for _ in range(mp_dynamics.num_agents)]
-
-    # Iterate over timesteps
-    for ii in range(mp_dynamics.TIMESTEPS):
-        # Integrate dynamics for each robot
+        # Append the states to the trajectory lists
         for i, robot in enumerate(mp_dynamics.agent_list):
-            states[i] = robot.integrate_dynamics_for_given_state(states[i], mp_dynamics.us[i][ii][0], mp_dynamics.us[i][ii][1], mp_dynamics.dt)
+            x_traj[i].append(robot.state[0].item())
+            y_traj[i].append(robot.state[1].item())
+            headings[i].append(robot.state[2].item())
 
-        # Concatenate states of all robots
-        concatenated_states = [val for sublist in states for val in sublist]
+        total_time_steps += 1
+        print(total_time_steps)
 
-        # Compute Hessian and gradients for each robot
-        for i, robot in enumerate(mp_dynamics.agent_list):
-            Qs[i].append(costs[i][0].hessian_x(concatenated_states, mp_dynamics.us[i][ii]))
-            ls[i].append(costs[i][0].gradient_x(concatenated_states, mp_dynamics.us[i][ii]))
-
-    # Append the states to the trajectory lists
-    for i, robot in enumerate(mp_dynamics.agent_list):
-        x_traj[i].append(robot.state[0].item())
-        y_traj[i].append(robot.state[1].item())
-        headings[i].append(robot.state[2].item())
-
-    total_time_steps += 1
-    print(total_time_steps)
+except KeyboardInterrupt:
+    pass 
 
 plt.ion()
 fig, ax = plt.subplots()

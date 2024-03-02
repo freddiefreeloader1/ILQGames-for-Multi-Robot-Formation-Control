@@ -1,5 +1,5 @@
 from scipy.linalg import block_diag
-from Costs import ProximityCost, OverallCost, ReferenceCost, WallCost
+from Costs import ProximityCost, OverallCost, ReferenceCost, WallCost, InputCost
 import numpy as np
 
 class MultiAgentDynamics():
@@ -30,26 +30,46 @@ class MultiAgentDynamics():
 
         return As, Bs
 
+    def get_linearized_dynamics_for_initial_state(self, x_states, u1, u2):
+        A_traj_mp = []
+        As = []
+        Bs = []
+        for i, agent in enumerate(self.agent_list):
+            _, _, A_traj, B_traj = agent.linearize_dynamics_along_trajectory_for_states(x_states[i], u1[i], u2[i], self.dt)
+            A_traj_mp.append(A_traj)
+            if i == 0:
+                B_traj = [np.concatenate((B, np.zeros((4 * (self.num_agents -1), 2))), axis=0) for B in B_traj]
+            else:
+                B_traj = [np.concatenate((np.zeros((4 * i, 2)), B, np.zeros((4 * (self.num_agents - i - 1), 2))), axis=0) for B in B_traj]   
+
+            Bs.append(B_traj)
+
+        As = [block_diag(*A_list) for A_list in zip(*A_traj_mp)]
+
+        return As, Bs
+
     def define_costs_lists(self):
         ref_cost_list = [[] for _ in range(len(self.agent_list))]
         prox_cost_list = [[] for _ in range(len(self.agent_list))]
         wall_cost_list = [[] for _ in range(len(self.agent_list))]
+        input_cost_list = [[] for _ in range(len(self.agent_list))]
         overall_cost_list = [[] for _ in range(len(self.agent_list))]
 
         for i, agent in enumerate(self.agent_list):
-            ref_cost_list[i].append(ReferenceCost(0.5, i, self.xref_mp))
+            ref_cost_list[i].append(ReferenceCost(i, self.xref_mp, 5.0))
+            input_cost_list[i].append(InputCost(i, 20.0))
 
         for i in range(len(self.agent_list)):
             for j in range(len(self.agent_list)):
                 if i != j:
-                    prox_cost_list[i].append(ProximityCost(0.6, i, j, 2.0))
+                    prox_cost_list[i].append(ProximityCost(1.0, i, j, 2.0))
 
         for i in range(len(self.agent_list)):
-            wall_cost_list[i].append(WallCost(i, 4.0))
+            wall_cost_list[i].append(WallCost(i, 5.0))
 
         for i in range(len(self.agent_list)):
             # add the reference cost and the proximity cost to the overall cost list
-            cost_list = ref_cost_list[i] + prox_cost_list[i] + wall_cost_list[i]
+            cost_list = ref_cost_list[i] + prox_cost_list[i] + wall_cost_list[i] + input_cost_list[i]
             overall_cost_list[i].append(OverallCost(cost_list))
         return overall_cost_list
     
@@ -59,16 +79,37 @@ class MultiAgentDynamics():
             us.append(np.zeros((self.TIMESTEPS, 2)))
         return us
 
-    def compute_control_vector(self, Ps, alphas):
+    def compute_control_vector(self, Ps, alphas, ksi = 0):
         for i, agent in enumerate(self.agent_list):
             for ii in range(self.TIMESTEPS):
-                self.us[i][ii, :] = -np.transpose(alphas[i][ii]) - Ps[i][ii][1][4*i:4*(i+1)] @ (agent.state.detach().numpy() - agent.xref)
-        return None
+                self.us[i][ii, :] = ksi[1][i][ii] - np.transpose(0.4*alphas[i][ii]) - Ps[i][ii][1][4*i:4*(i+1)] @ (agent.state.detach().numpy() - ksi[0][i][ii])
+        return self.us
+
+    def compute_control_vector_current(self, Ps, alphas, xs, current_x, u_prev):
+        u_next = np.zeros((self.num_agents, self.TIMESTEPS, 2))
+        if current_x is not None:
+            for i, agent in enumerate(self.agent_list):
+                for ii in range(self.TIMESTEPS):
+                    # concatenate the states of all the robots
+                    concatenated_states = np.concatenate([state[ii] for state in xs])
+                    concatenated_states_current = np.concatenate([state[ii] for state in current_x])
+                    u_next[i][ii] = u_prev[i][ii] - 0.01*alphas[i][ii] - Ps[i][ii] @ (concatenated_states - concatenated_states_current)
+        else:
+            for i, agent in enumerate(self.agent_list):
+                for ii in range(self.TIMESTEPS):
+                    u_next[i][ii] = u_prev[i][ii] - 0.01*alphas[i][ii]
+        return u_next
 
     def integrate_dynamics(self):
         for i, agent in enumerate(self.agent_list):
             agent.integrate_dynamics(self.us[i][0][0], self.us[i][0][1], self.dt)
         return None
+
+    def integrate_dynamics_for_initial_mp(self, u1, u2, dt):
+        xs = [[agent.x0] for agent in self.agent_list]
+        for i, agent in enumerate(self.agent_list):
+            xs[i] = xs[i] + (agent.integrate_dynamics_for_initial_state(agent.x0, u1[i], u2[i], dt, self.TIMESTEPS))
+        return xs
 
     def reshape_control_inputs(self):
         reshaped_inputs = []
@@ -81,7 +122,7 @@ class MultiAgentDynamics():
         return reshaped_inputs
 
     def get_control_cost_matrix(self):
-        R_eye = np.eye(2)*4
+        R_eye = np.array([[1, 0],[0, 25]])
         R_zeros = np.zeros((2, 2))
 
         # Initialize R_matrices and Z_matrices lists
@@ -95,3 +136,13 @@ class MultiAgentDynamics():
             Rs.append(R_terms)
 
         return Rs
+
+    def check_convergence(self, current_points, last_points):
+
+        if last_points is None:
+            return 0
+        for i in range(len(current_points)):
+            for j in range(len(current_points[i])):
+                if np.linalg.norm(np.array(current_points[i][j]) - np.array(last_points[i][j])) > 0.001:
+                    return 0
+        return 1

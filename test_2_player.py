@@ -31,8 +31,8 @@ robot2 = UnicycleRobot(x0_2, dt)
 
 ProximityCost1 = ProximityCost(1.7, 0, 1, 2)
 ProximityCost2 = ProximityCost(1.7, 1, 0, 2)
-ReferenceCost1 = ReferenceCost(0.5, 0, xref_mp)
-ReferenceCost2 = ReferenceCost(0.5, 1, xref_mp)
+ReferenceCost1 = ReferenceCost(0, xref_mp)
+ReferenceCost2 = ReferenceCost(1, xref_mp)
 
 overall_cost_1 = OverallCost([ReferenceCost1, ProximityCost1])
 overall_cost_2 = OverallCost([ReferenceCost2, ProximityCost2])

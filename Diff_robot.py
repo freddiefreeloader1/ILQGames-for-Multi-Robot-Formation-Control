@@ -21,16 +21,31 @@ class UnicycleRobot:
         v_dot = torch.tensor(u2)  # Convert v_dot to a tensor
         return torch.stack([x_dot, y_dot, theta_dot, v_dot])
 
+    def dynamics_for_given_state(self, state, u1, u2):
+        x, y, theta, v  = state
+        x_dot = v * np.cos(theta)
+        y_dot = v * np.sin(theta)
+        theta_dot = u1  # Convert theta_dot to a tensor
+        v_dot = u2
+        return [x_dot, y_dot, theta_dot, v_dot]
+
     def integrate_dynamics_clone(self, u1, u2, dt):
         x_dot = self.dynamics(u1, u2)
         updated_state = self.state + self.dt * x_dot.detach().clone()
         return updated_state.data  
 
     def integrate_dynamics_for_given_state(self, state, u1, u2, dt):
-        x_dot = self.dynamics(u1, u2)
-        updated_state = [self.dt*i for i in x_dot.detach().numpy().tolist()] 
+        x_dot = self.dynamics_for_given_state(state, u1, u2)
+        updated_state = [self.dt*i for i in x_dot] 
         updated_state= [i + j for i, j in zip(state, updated_state)]
         return updated_state
+
+    def integrate_dynamics_for_initial_state(self, state, u1s, u2s, dt, TIMESTEP):
+        states = []
+        for i in range(TIMESTEP):
+            state = self.integrate_dynamics_for_given_state(state, u1s[i], u2s[i], dt)
+            states.append(state)
+        return states
 
     def integrate_dynamics(self, u1, u2, dt):
         # Integrate forward in time using Euler method
@@ -52,7 +67,20 @@ class UnicycleRobot:
                      [1, 0],
                      [0, 1]])
         return A, B
+
+    def linearize(self, x, u):
         
+        A = np.array([[0, 0, x[3] * -np.sin(x[2]), np.cos(x[2])], 
+                    [0, 0, x[3] * np.cos(x[2]), np.sin(x[2])],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0]])
+
+        B = np.array([[0, 0],
+                    [0, 0],
+                    [1, 0],
+                    [0, 1]])
+        return A, B
+    
     def linearize_discrete(self, A, B, dt):
 
         A_d = scipy.linalg.expm(A * dt)
@@ -88,7 +116,27 @@ class UnicycleRobot:
             B_list.append(B)
           
         return np.array(A_list), np.array(B_list), np.array(A_d_list), np.array(B_d_list)
-    
+
+    def linearize_dynamics_along_trajectory_for_states(self,states, u1_traj, u2_traj, dt):
+        # Linearize dynamics along the trajectory
+        num_steps = len(u2_traj)
+
+        A_list = []
+        B_list = []
+        A_d_list = []
+        B_d_list = []
+
+        for t in range(num_steps):
+            u = [u1_traj[t], u2_traj[t]]
+            A, B = self.linearize(states[t], u)
+            A_d, B_d = self.linearize_discrete(A, B, dt)
+            A_d_list.append(A_d)
+            B_d_list.append(B_d)
+            A_list.append(A)
+            B_list.append(B)
+          
+        return np.array(A_list), np.array(B_list), np.array(A_d_list), np.array(B_d_list)
+
 # Example usage:
 """ robot = UnicycleRobot(0.0,0.0,0.0,0.0)
 
