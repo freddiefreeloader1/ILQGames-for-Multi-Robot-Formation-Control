@@ -56,16 +56,16 @@ class MultiAgentDynamics():
         overall_cost_list = [[] for _ in range(len(self.agent_list))]
 
         for i, agent in enumerate(self.agent_list):
-            ref_cost_list[i].append(ReferenceCost(i, self.xref_mp, 5.0))
-            input_cost_list[i].append(InputCost(i, 20.0))
+            ref_cost_list[i].append(ReferenceCost(i, self.xref_mp, 10.0))
+            input_cost_list[i].append(InputCost(i, 8.0))
 
         for i in range(len(self.agent_list)):
             for j in range(len(self.agent_list)):
                 if i != j:
-                    prox_cost_list[i].append(ProximityCost(1.0, i, j, 2.0))
+                    prox_cost_list[i].append(ProximityCost(1.0, i, j, 3.0))
 
         for i in range(len(self.agent_list)):
-            wall_cost_list[i].append(WallCost(i, 5.0))
+            wall_cost_list[i].append(WallCost(i, 2.0))
 
         for i in range(len(self.agent_list)):
             # add the reference cost and the proximity cost to the overall cost list
@@ -144,5 +144,6 @@ class MultiAgentDynamics():
         for i in range(len(current_points)):
             for j in range(len(current_points[i])):
                 if np.linalg.norm(np.array(current_points[i][j]) - np.array(last_points[i][j])) > 0.001:
+                    # print(i,j)
                     return 0
         return 1

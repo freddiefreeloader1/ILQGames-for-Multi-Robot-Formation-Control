@@ -16,7 +16,7 @@ TIMESTEPS = int(HORIZON / dt)
 x0 = [3.0, 2.0, 1.0, 0.0]
 x_traj = [x0[0]]
 y_traj = [x0[1]]
-robot = UnicycleRobot(x0[0], x0[1], x0[2], x0[3])
+robot = UnicycleRobot(x0, dt)
 
 u1 = [0.0]*TIMESTEPS
 u2 = [0.0]*TIMESTEPS

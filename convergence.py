@@ -11,21 +11,21 @@ from MultiAgentDynamics import MultiAgentDynamics
 
 
 dt = 0.1
-HORIZON = 5.0
+HORIZON = 8.0
 TIMESTEPS = int(HORIZON / dt)
 
 
-x0_1 = [-2.0, -2.0, 0.0, 0.0]
-x0_2 = [2.0, 2.0, 3.14, 0.0]
-x0_3 = [3.0, -2.0, 3.14, 0.0]
+x0_1 = [-2.0, -2.0, 0.0, 1.0]
+x0_2 = [-2.0, 2.0, 0.0, 1.0]
+x0_3 = [0.0, 4.0, -np.pi/2, 3.0]
 x0_4 = [-2.0, 3.0, 0.0, 0.0]
 x0_5 = [0.0, 1.0, 0.0, 0.0]
 x0_6 = [1.0, 0.0, 0.0, 0.0]
 
 
-x_ref_1 = np.array([0, 0, 0, 0])
-x_ref_2 = np.array([0, -2, 0, 0])
-x_ref_3 = np.array([0, 2, 0, 0])
+x_ref_1 = np.array([3, -2, 0, 0])
+x_ref_2 = np.array([3, 2, 0, 0])
+x_ref_3 = np.array([0, -3, 0, 0])
 x_ref_4 = np.array([2, 0, 0, 0])
 x_ref_5 = np.array([-2, 0, 0, 0])
 x_ref_6 = np.array([0, -1, 0, 0])

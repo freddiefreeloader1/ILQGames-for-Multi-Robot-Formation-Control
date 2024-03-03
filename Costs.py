@@ -26,7 +26,7 @@ class InputCost:
         self.weight = weight
         self.idx = idx
     def evaluate(self, x, u):
-        return self.weight * (u[0]**2 + 10*u[1]**2)
+        return self.weight * (3*u[0]**2 + 6*u[1]**2)
 
 class WallCost:
     def __init__(self, idx, weight=1.0):
