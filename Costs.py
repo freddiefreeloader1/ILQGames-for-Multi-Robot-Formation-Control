@@ -18,7 +18,7 @@ class ReferenceCost:
         self.weight = weight
 
     def evaluate(self, x, u):
-        dist = np.sqrt((x[4*self.idx] - self.x_ref[4*self.idx])**2 + (x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])**2 + (x[4*self.idx + 3] - self.x_ref[4*self.idx + 3])**2)
+        dist = np.sqrt((x[4*self.idx] - self.x_ref[4*self.idx])**2 + (x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])**2 + (x[4*self.idx + 2] - self.x_ref[4*self.idx + 2])**2 + 2*(x[4*self.idx + 3] - self.x_ref[4*self.idx + 3])**2)
         return dist * self.weight
 
 class InputCost:
@@ -26,7 +26,7 @@ class InputCost:
         self.weight = weight
         self.idx = idx
     def evaluate(self, x, u):
-        return self.weight * (3*u[0]**2 + 6*u[1]**2)
+        return self.weight * (6*u[0]**2 + 10*u[1]**2)
 
 class WallCost:
     def __init__(self, idx, weight=1.0):
@@ -89,9 +89,9 @@ class OverallCost:
 
 def trial():
     trial_cost = TrialCost()
-    overall_cost = OverallCost([trial_cost])
+    overall_cost = OverallCost([ProximityCost(idx1 = 0, idx2 = 1)])
 
-    x_example = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    x_example = np.array([1.2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
     u_example = np.array([1, 1])
 
     total_cost = overall_cost.evaluate(x_example, u_example)

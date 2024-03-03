@@ -11,7 +11,7 @@ from MultiAgentDynamics import MultiAgentDynamics
 
 
 dt = 0.1
-HORIZON = 8.0
+HORIZON = 6.0
 TIMESTEPS = int(HORIZON / dt)
 
 
@@ -79,11 +79,13 @@ try:
         current_points = xs
         xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt)
 
+        # get the linearized dynamics
         As, Bs = mp_dynamics.get_linearized_dynamics_for_initial_state(xs,u1,u2)
         
         Qs = [[] for _ in range(mp_dynamics.num_agents)]
         ls = [[] for _ in range(mp_dynamics.num_agents)]
         Rs = [[[] for _ in range(mp_dynamics.num_agents)] for _ in range(mp_dynamics.num_agents)]
+
         # Iterate over timesteps
         total_costs.append([])
         for ii in range(mp_dynamics.TIMESTEPS):
