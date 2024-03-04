@@ -1,6 +1,7 @@
 from scipy.linalg import block_diag
 from Costs import ProximityCost, OverallCost, ReferenceCost, WallCost, InputCost
 import numpy as np
+from scipy.special import erfinv
 
 class MultiAgentDynamics():
     def __init__(self, agent_list, dt, HORIZON=3.0):
@@ -11,6 +12,7 @@ class MultiAgentDynamics():
         self.xref_mp = np.concatenate([agent.xref for agent in agent_list])
         self.TIMESTEPS = int(HORIZON/dt)
         self.us = self.get_control_vector()
+        self.prob = 0.95
 
     def get_linearized_dynamics(self, u_list):
         A_traj_mp = []
@@ -147,3 +149,17 @@ class MultiAgentDynamics():
                     if np.abs(np.array(current_points[i][j][k]) - np.array(last_points[i][j][k])) > 0.001:
                         return 0
         return 1
+
+    def get_Gs(self, xs, prox_cost_list, sigmas):
+        Gs = np.empty((self.num_agents, self.TIMESTEPS, self.num_agents-1), dtype=object)
+        qs = np.empty((self.num_agents, self.TIMESTEPS, self.num_agents-1), dtype=object)
+        rhos = np.empty((self.num_agents, self.TIMESTEPS, self.num_agents-1), dtype=object)
+
+        xs_concatenated = [np.concatenate([state[t] for state in xs]) for t in range(self.TIMESTEPS)]
+        for i in range(self.num_agents):
+            for t in range(self.TIMESTEPS):
+                for j in range(self.num_agents-1):
+                    Gs[i][t][j] = prox_cost_list[i][j].gradient_x(xs_concatenated[t], [0]*self.num_agents*4)
+                    qs[i][t][j] = prox_cost_list[i][j].evaluate(xs_concatenated[t], [0]*self.num_agents*4) - Gs[i][t][j] @ xs_concatenated[t]
+                    rhos[i][t][j] = np.sqrt(2*Gs[i][t][j]@sigmas[t]@Gs[i][t][j].T)*erfinv(2*self.prob - 1)
+        return Gs, qs, rhos 

@@ -1,0 +1,154 @@
+import torch
+import numpy as np
+import scipy.linalg
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+
+
+class UnicycleRobot:
+
+    def __init__(self, x0, xref, dt=0.1):
+        self.x0 = x0
+        self.state = torch.tensor([x0[0], x0[1], x0[2], x0[3]], requires_grad=True)  # (x, y, theta, v)
+        self.xref = xref
+        self.dt = dt
+        self.uncertainty_params = {'A_uncertainty': 0.01, 'B_uncertainty': 0.01}
+
+    def set_uncertainty_params(self, A_uncertainty, B_uncertainty):
+        self.uncertainty_params['A_uncertainty'] = A_uncertainty
+        self.uncertainty_params['B_uncertainty'] = B_uncertainty
+
+    def dynamics(self, u1, u2):
+
+        x, y, theta, v = self.state
+        A_uncertainty = torch.normal(0, self.uncertainty_params['A_uncertainty'])
+        B_uncertainty = torch.normal(0, self.uncertainty_params['B_uncertainty'])
+
+        x_dot = v * torch.cos(theta) + A_uncertainty 
+        y_dot = v * torch.sin(theta) + A_uncertainty 
+        theta_dot = torch.tensor(u1) + B_uncertainty 
+        v_dot = torch.tensor(u2) + B_uncertainty
+
+        return torch.stack([x_dot, y_dot, theta_dot, v_dot])
+
+    def dynamics_for_given_state(self, state, u1, u2):
+
+        A_uncertainty = np.random.normal(0, self.uncertainty_params['A_uncertainty'])
+        B_uncertainty = np.random.normal(0, self.uncertainty_params['B_uncertainty'])
+        x, y, theta, v  = state
+
+        x_dot = v * np.cos(theta) + A_uncertainty
+        y_dot = v * np.sin(theta) + A_uncertainty
+        theta_dot = u1 + B_uncertainty
+        v_dot = u2 + B_uncertainty
+
+        return [x_dot, y_dot, theta_dot, v_dot]
+
+    def integrate_dynamics_clone(self, u1, u2, dt):
+        x_dot = self.dynamics(u1, u2)
+        updated_state = self.state + self.dt * x_dot.detach().clone()
+        return updated_state.data  
+
+    def integrate_dynamics_for_given_state(self, state, u1, u2, dt):
+        x_dot = self.dynamics_for_given_state(state, u1, u2)
+        updated_state = [self.dt*i for i in x_dot] 
+        updated_state= [i + j for i, j in zip(state, updated_state)]
+        return updated_state
+
+    def integrate_dynamics_for_initial_state(self, state, u1s, u2s, dt, TIMESTEP):
+        states = []
+        for i in range(TIMESTEP):
+            state = self.integrate_dynamics_for_given_state(state, u1s[i], u2s[i], dt)
+            states.append(state)
+        return states
+
+    def integrate_dynamics(self, u1, u2, dt):
+        # Integrate forward in time using Euler method
+        x_dot = self.dynamics(u1, u2)
+        updated_state = self.state + self.dt * x_dot.detach().clone()
+        self.state.data =  updated_state.data  # Update state without creating a view
+
+    def linearize_autograd(self, x_torch, u_torch):
+        
+        updated_state = self.integrate_dynamics_clone(u_torch[0], u_torch[1], self.dt)
+
+        A = np.array([[0, 0, updated_state[3].detach().numpy() * -torch.sin(updated_state[2]).item(), torch.cos(updated_state[2]).item()], 
+                     [0, 0, updated_state[3].item() * torch.cos(updated_state[2]).item(), torch.sin(updated_state[2]).item()],
+                     [0, 0, 0, 0],
+                     [0, 0, 0, 0]])
+
+        B = np.array([[0, 0],
+                     [0, 0],
+                     [1, 0],
+                     [0, 1]])
+        return A, B
+
+    def linearize(self, x, u):
+        
+        A = np.array([[0, 0, x[3] * -np.sin(x[2]), np.cos(x[2])], 
+                    [0, 0, x[3] * np.cos(x[2]), np.sin(x[2])],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0]])
+
+        B = np.array([[0, 0],
+                    [0, 0],
+                    [1, 0],
+                    [0, 1]])
+        return A, B
+    
+    def linearize_discrete(self, A, B, dt):
+
+        A_d = scipy.linalg.expm(A * dt)
+        B_d = np.linalg.pinv(A) @ (scipy.linalg.expm(A * dt) - np.eye(4)) @ B
+        # make the values of A_d and B_d to be 0 if they are very close to 0
+        A_d[np.abs(A_d) < 1e-10] = 0
+        B_d[np.abs(B_d) < 1e-10] = 0
+
+        return A_d, B_d
+        
+    def linearize_dynamics_along_trajectory(self, u1_traj, u2_traj, dt):
+        # Linearize dynamics along the trajectory
+        num_steps = len(u2_traj)
+
+        A_list = []
+        B_list = []
+        A_d_list = []
+        B_d_list = []
+
+        for t in range(num_steps):
+            # Integrate forward in time
+            updated_state = self.integrate_dynamics_clone(u1_traj[t], u2_traj[t], self.dt)
+
+            # Linearize at the current state and control
+            x_torch = updated_state.clone().detach().requires_grad_(True)
+            u_torch = torch.tensor([u1_traj[t], u2_traj[t]], requires_grad=True)
+
+            A, B = self.linearize_autograd(x_torch, u_torch)
+            A_d, B_d = self.linearize_discrete(A, B, dt)
+            A_d_list.append(A_d)
+            B_d_list.append(B_d)
+            A_list.append(A)
+            B_list.append(B)
+          
+        return np.array(A_list), np.array(B_list), np.array(A_d_list), np.array(B_d_list)
+
+    def linearize_dynamics_along_trajectory_for_states(self,states, u1_traj, u2_traj, dt):
+        # Linearize dynamics along the trajectory
+        num_steps = len(u2_traj)
+
+        A_list = []
+        B_list = []
+        A_d_list = []
+        B_d_list = []
+
+        for t in range(num_steps):
+            u = [u1_traj[t], u2_traj[t]]
+            A, B = self.linearize(states[t], u)
+            A_d, B_d = self.linearize_discrete(A, B, dt)
+            A_d_list.append(A_d)
+            B_d_list.append(B_d)
+            A_list.append(A)
+            B_list.append(B)
+          
+        return np.array(A_list), np.array(B_list), np.array(A_d_list), np.array(B_d_list)
+

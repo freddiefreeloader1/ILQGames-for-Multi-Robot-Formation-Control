@@ -11,6 +11,10 @@ class ProximityCost:
         dist = np.sqrt((x[4*self.idx1] - x[4*self.idx2])**2 + (x[4*self.idx1 + 1] - x[4*self.idx2 + 1])**2)
         return  0.0 if dist > self.d_threshold else self.weight * (self.d_threshold - dist)
 
+    def gradient_x(self, x, u):
+        grad_x = approx_fprime(x, lambda x: self.evaluate(x, u), epsilon=1e-6)
+        return grad_x
+
 class ReferenceCost:
     def __init__(self, idx = 0, x_ref = np.array([0, 0, 0, 0, 0, 0, 0, 0]), weight = 1.0):
         self.idx = idx
