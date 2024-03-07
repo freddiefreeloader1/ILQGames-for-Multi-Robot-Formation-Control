@@ -118,6 +118,7 @@ try:
                 ls[i].append(costs[i][0].gradient_x(concatenated_states, prev_control_inputs[i][ii]))
                 Rs[i][i].append(costs[i][0].hessian_u(concatenated_states, prev_control_inputs[i][ii]))
                 total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, prev_control_inputs[i][ii]))
+                
         # sum the costs 
         for i in range(mp_dynamics.num_agents):
             for j in range(mp_dynamics.num_agents):

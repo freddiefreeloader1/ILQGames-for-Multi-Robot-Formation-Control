@@ -1,5 +1,7 @@
-import numpy as np
+import autograd.numpy as np
 from scipy.optimize import approx_fprime
+from autograd import elementwise_grad as egrad
+import time
 
 class ProximityCost:
     def __init__(self, d_threshold=0.5, idx1 = 0, idx2 = 0, weight = 1.0):
@@ -22,7 +24,7 @@ class ReferenceCost:
         self.weight = weight
 
     def evaluate(self, x, u):
-        dist = np.sqrt((x[4*self.idx] - self.x_ref[4*self.idx])**2 + (x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])**2 + (x[4*self.idx + 2] - self.x_ref[4*self.idx + 2])**2 + 2*(x[4*self.idx + 3] - self.x_ref[4*self.idx + 3])**2)
+        dist = np.sqrt((x[4*self.idx] - self.x_ref[4*self.idx])**2 + (x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])**2 + (x[4*self.idx + 2] - self.x_ref[4*self.idx + 2])**2 + (x[4*self.idx + 3] - self.x_ref[4*self.idx + 3])**2)
         return dist * self.weight
 
 class InputCost:
@@ -30,7 +32,7 @@ class InputCost:
         self.weight = weight
         self.idx = idx
     def evaluate(self, x, u):
-        return self.weight * (6*u[0]**2 + 10*u[1]**2)
+        return self.weight * (3*u[0]**2 + 6*u[1]**2)
 
 class WallCost:
     def __init__(self, idx, weight=1.0):
@@ -102,6 +104,13 @@ def trial():
     gradient_x = overall_cost.gradient_x(x_example, u_example)
     hessian_x = overall_cost.hessian_x(x_example, u_example)
     hessian_u = overall_cost.hessian_u(x_example, u_example)
+
+    # use egrad to get the gradient of the cost function with respect to x
+    gradient_x_autograd = egrad(overall_cost.evaluate, 0)
+    gradient_x_autograd(x_example, u_example)
+
+    print(gradient_x_autograd(x_example, u_example))
+
 
     print("Total Cost:", total_cost)
     print("Gradient with respect to x:", gradient_x)

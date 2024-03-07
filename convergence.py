@@ -5,12 +5,14 @@ from scipy.linalg import block_diag
 
 from solve_lq_problem import solve_lq_game
 from Diff_robot import UnicycleRobot
-from Costs import ProximityCost, OverallCost, ReferenceCost
+# from Costs import ProximityCost, OverallCost, ReferenceCost
+# from cost_autograd import ProximityCost, ReferenceCost, OverallCost
+from costs_torch import ProximityCost, ReferenceCost, OverallCost
 from MultiAgentDynamics import MultiAgentDynamics
 
 
 
-dt = 0.1
+dt = 0.25
 HORIZON = 6.0
 TIMESTEPS = int(HORIZON / dt)
 
@@ -74,20 +76,23 @@ total_costs = []
 
 try:
     while (flag == 0):
-
+        start = time.time()
         last_points = current_points
         current_points = xs
+
+        # integrate the dynamics
         xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt)
 
         # get the linearized dynamics
         As, Bs = mp_dynamics.get_linearized_dynamics_for_initial_state(xs,u1,u2)
-        
+
         Qs = [[] for _ in range(mp_dynamics.num_agents)]
         ls = [[] for _ in range(mp_dynamics.num_agents)]
         Rs = [[[] for _ in range(mp_dynamics.num_agents)] for _ in range(mp_dynamics.num_agents)]
 
         # Iterate over timesteps
         total_costs.append([])
+        cost_start = time.time()
         for ii in range(mp_dynamics.TIMESTEPS):
             concatenated_states = np.concatenate([state[ii] for state in xs])
             for i, robot in enumerate(mp_dynamics.agent_list):
@@ -95,14 +100,17 @@ try:
                 ls[i].append(costs[i][0].gradient_x(concatenated_states, prev_control_inputs[i][ii]))
                 Rs[i][i].append(costs[i][0].hessian_u(concatenated_states, prev_control_inputs[i][ii]))
                 total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, prev_control_inputs[i][ii]))
-        # sum the costs 
+
+        cost_end = time.time()
+        print(f"Time taken for cost computation: {cost_end - cost_start}")
+
         for i in range(mp_dynamics.num_agents):
             for j in range(mp_dynamics.num_agents):
                 if i != j:
-                    Rs[i][j] = [np.zeros((2, 2)) for _ in range(mp_dynamics.TIMESTEPS)]       
+                    Rs[i][j] = [np.zeros((2, 2)) for _ in range(mp_dynamics.TIMESTEPS)]    
 
+        # sum the costs 
         total_costs[total_time_steps] = sum(total_costs[total_time_steps])
-
         Ps, alphas = solve_lq_game(As, Bs, Qs, ls, Rs)
 
         u1_array = np.array(u1)
@@ -133,6 +141,8 @@ try:
                     headings[i].append(xs[i][ii][2])
 
         total_time_steps += 1
+        end = time.time()
+        print(f"Time taken for iteration {total_time_steps}: {end - start}")
         print(total_time_steps)
 
 except KeyboardInterrupt:
@@ -160,7 +170,6 @@ ax.set_xlim(-4, 4)
 ax.set_ylim(-4, 4)
 ax.grid(True)
 colors = ['ro', 'go', 'bo', 'co', 'mo', 'yo']
-
 for kk in range(mp_dynamics.TIMESTEPS):    
     ax.clear()
     ax.grid(True)
@@ -178,3 +187,21 @@ for kk in range(mp_dynamics.TIMESTEPS):
 plt.ioff()
 
 
+# plot the whole state trajectorys
+plt.figure()
+for i in range(mp_dynamics.num_agents):
+    plt.plot(x_traj[i], y_traj[i], label=f'Robot {i}')
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.title('State Trajectories')
+plt.legend()
+plt.show()
+# plot the whole state trajectorys
+plt.figure()
+for i in range(mp_dynamics.num_agents):
+    plt.plot(headings[i], label=f'Robot {i}')
+plt.xlabel('Timestep')
+plt.ylabel('Heading')
+plt.title('Heading Trajectories')
+plt.legend()
+plt.show()

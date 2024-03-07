@@ -99,7 +99,7 @@ class MultiAgentDynamics():
         else:
             for i, agent in enumerate(self.agent_list):
                 for ii in range(self.TIMESTEPS):
-                    u_next[i][ii] = u_prev[i][ii] - 0.01*alphas[i][ii]
+                    u_next[i][ii] = u_prev[i][ii] - 0.05*alphas[i][ii]
         return u_next
 
     def integrate_dynamics(self):
@@ -146,7 +146,7 @@ class MultiAgentDynamics():
         for i in range(len(current_points)):
             for j in range(len(current_points[i])):
                 for k in range(len(current_points[i][j])):
-                    if np.abs(np.array(current_points[i][j][k]) - np.array(last_points[i][j][k])) > 0.001:
+                    if np.abs(np.array(current_points[i][j][k]) - np.array(last_points[i][j][k])) > 0.02:
                         return 0
         return 1
 
