@@ -10,7 +10,7 @@ class ProximityCost:
 
     def evaluate(self, x, u):
         dist = torch.sqrt((x[4 * self.idx1] - x[4 * self.idx2])**2 + (x[4 * self.idx1 + 1] - x[4 * self.idx2 + 1])**2)
-        return 0.0 if dist > self.d_threshold else self.weight * (self.d_threshold - dist)
+        return 0.0 if dist > self.d_threshold else self.weight * (self.d_threshold - dist)**2
 
     def gradient_x(self, x, u):
         grad_x = torch.autograd.grad(self.evaluate(x, u), x, create_graph=True)[0]
@@ -23,7 +23,10 @@ class ReferenceCost:
         self.weight = weight
 
     def evaluate(self, x, u):
-        dist = torch.sqrt((x[4 * self.idx] - self.x_ref[4 * self.idx])**2 + (x[4 * self.idx + 1] - self.x_ref[4 * self.idx + 1])**2 + (x[4 * self.idx + 2] - self.x_ref[4 * self.idx + 2])**2 + (x[4 * self.idx + 3] - self.x_ref[4 * self.idx + 3])**2)
+        dist = torch.sqrt((x[4 * self.idx] - self.x_ref[4 * self.idx])**2 + 
+        (x[4 * self.idx + 1] - self.x_ref[4 * self.idx + 1])**2 + 
+        (x[4 * self.idx + 2] - self.x_ref[4 * self.idx + 2])**2 + 
+        (x[4 * self.idx + 3] - self.x_ref[4 * self.idx + 3])**2)**2
         return dist * self.weight
 
     def gradient_x(self, x, u):
@@ -36,7 +39,7 @@ class InputCost:
         self.idx = idx
 
     def evaluate(self, x, u):
-        return self.weight * (3 * u[0]**2 + 2 * u[1]**2)
+        return self.weight * (3 * u[0]**2 + 8 * u[1]**2)
 
     def gradient_u(self, x, u):
         grad_u = torch.autograd.grad(self.evaluate(x, u), u, create_graph=True)[0]
@@ -86,6 +89,7 @@ class OverallCost:
         total_cost = 0.0
         for subsystem_cost in self.subsystem_cost_functions:
             total_cost += subsystem_cost.evaluate(x, u)
+            # print(subsystem_cost.evaluate(x, u))
         return total_cost
 
     def gradient_x(self, x, u):
@@ -100,7 +104,7 @@ class OverallCost:
         hess_x = torch.autograd.functional.hessian(self.evaluate, (x, u))
         return hess_x
 
-    def hessian_u(self, x, u):
+    def hessian_u(self, x,u):
         hess_u = torch.autograd.functional.hessian(self.evaluate, (x, u))
         return hess_u
 

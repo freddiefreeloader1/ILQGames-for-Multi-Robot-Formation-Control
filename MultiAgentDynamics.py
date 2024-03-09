@@ -1,5 +1,9 @@
 from scipy.linalg import block_diag
+
 from Costs import ProximityCost, OverallCost, ReferenceCost, WallCost, InputCost
+# from costs_torch import ProximityCost, ReferenceCost, OverallCost, WallCost, InputCost
+# from cost_autograd import ProximityCost, ReferenceCost, OverallCost, WallCost, InputCost
+
 import numpy as np
 from scipy.special import erfinv
 
@@ -58,16 +62,16 @@ class MultiAgentDynamics():
         overall_cost_list = [[] for _ in range(len(self.agent_list))]
 
         for i, agent in enumerate(self.agent_list):
-            ref_cost_list[i].append(ReferenceCost(i, self.xref_mp, 15.0))
-            input_cost_list[i].append(InputCost(i, 8.0))
+            ref_cost_list[i].append(ReferenceCost(i, self.xref_mp, 10.0))
+            input_cost_list[i].append(InputCost(i, 2.0))
 
         for i in range(len(self.agent_list)):
             for j in range(len(self.agent_list)):
                 if i != j:
-                    prox_cost_list[i].append(ProximityCost(1.0, i, j, 3.0))
+                    prox_cost_list[i].append(ProximityCost(1.3, i, j, 4.0))
 
         for i in range(len(self.agent_list)):
-            wall_cost_list[i].append(WallCost(i, 8.0))
+            wall_cost_list[i].append(WallCost(i, 1.0))
 
         for i in range(len(self.agent_list)):
             # add the reference cost and the proximity cost to the overall cost list
@@ -84,7 +88,7 @@ class MultiAgentDynamics():
     def compute_control_vector(self, Ps, alphas, ksi = 0):
         for i, agent in enumerate(self.agent_list):
             for ii in range(self.TIMESTEPS):
-                self.us[i][ii, :] = ksi[1][i][ii] - np.transpose(0.4*alphas[i][ii]) - Ps[i][ii][1][4*i:4*(i+1)] @ (agent.state.detach().numpy() - ksi[0][i][ii])
+                self.us[i][ii, :] = - np.transpose(0.1*alphas[i][ii]) - Ps[i][ii][1][4*i:4*(i+1)] @ (agent.state.detach().numpy() - self.xref_mp[4*i:4*(i+1)])
         return self.us
 
     def compute_control_vector_current(self, Ps, alphas, xs, current_x, u_prev):
@@ -99,7 +103,7 @@ class MultiAgentDynamics():
         else:
             for i, agent in enumerate(self.agent_list):
                 for ii in range(self.TIMESTEPS):
-                    u_next[i][ii] = u_prev[i][ii] - 0.05*alphas[i][ii]
+                    u_next[i][ii] = u_prev[i][ii] - 0.01*alphas[i][ii]
         return u_next
 
     def integrate_dynamics(self):
@@ -146,7 +150,7 @@ class MultiAgentDynamics():
         for i in range(len(current_points)):
             for j in range(len(current_points[i])):
                 for k in range(len(current_points[i][j])):
-                    if np.abs(np.array(current_points[i][j][k]) - np.array(last_points[i][j][k])) > 0.02:
+                    if np.abs(np.array(current_points[i][j][k]) - np.array(last_points[i][j][k])) > 0.01:
                         return 0
         return 1
 

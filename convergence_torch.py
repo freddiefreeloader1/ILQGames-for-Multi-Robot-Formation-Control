@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 from scipy.linalg import block_diag
+import torch
 
 from solve_lq_problem import solve_lq_game
 from Diff_robot import UnicycleRobot
@@ -9,7 +10,7 @@ from MultiAgentDynamics import MultiAgentDynamics
 
 
 
-dt = 0.15
+dt = 0.25
 HORIZON = 6.0
 TIMESTEPS = int(HORIZON / dt)
 scenerio = "overtaking"
@@ -31,9 +32,9 @@ if scenerio == "intersection":
     x_ref_6 = np.array([0, -1, 0, 0])
 
 if scenerio == "overtaking":
-    x0_1 = [-3.0, -2.0, 0.0, 1.1]
+    x0_1 = [-3.0, -2.0, 0.0, 1]
     x0_2 = [-3.0, 2.0, 0.0, 1]
-    x0_3 = [-3.0, 0.0, 0, 0.8]
+    x0_3 = [-3.0, 0.0, 0, 1]
     x0_4 = [-2.0, 3.0, 0.0, 0.0]
     x0_5 = [0.0, 1.0, 0.0, 0.0]
     x0_6 = [1.0, 0.0, 0.0, 0.0]
@@ -67,10 +68,11 @@ headings = [[] for _ in range(mp_dynamics.num_agents)]
 
 ls = []
 Qs = []
-
+x0_tensor = torch.tensor(mp_dynamics.x0_mp, requires_grad=True)
+u0_tensor = torch.tensor([0.0]*mp_dynamics.num_agents*4, requires_grad=True)
 for i in range(mp_dynamics.num_agents):
-    Qs.append([costs[i][0].hessian_x(mp_dynamics.x0_mp, [0]*mp_dynamics.num_agents*4)]*mp_dynamics.TIMESTEPS)
-    ls.append([costs[i][0].gradient_x(mp_dynamics.x0_mp, [0]*mp_dynamics.num_agents*4)]*mp_dynamics.TIMESTEPS)
+    Qs.append([costs[i][0].hessian_x(x0_tensor, u0_tensor)]*mp_dynamics.TIMESTEPS)
+    ls.append([costs[i][0].gradient_x(x0_tensor, u0_tensor)]*mp_dynamics.TIMESTEPS)
 
 Rs = mp_dynamics.get_control_cost_matrix()
 
@@ -91,12 +93,9 @@ for i, agent in enumerate(mp_dynamics.agent_list):
     xs[i] = [agent.x0 for _ in range(mp_dynamics.TIMESTEPS)]
     for t in range(mp_dynamics.TIMESTEPS):
         if t != 0:
-            # the initial trajectort should be a straight line to reference
-            x_dif = (agent.xref[0] - agent.x0[0])/mp_dynamics.TIMESTEPS
-            y_dif = (agent.xref[1] - agent.x0[1])/mp_dynamics.TIMESTEPS
-            heading = np.arctan2(y_dif, x_dif)
-            xs[i][t] = [xs[i][t-1][0] + x_dif, xs[i][t-1][1] + y_dif, heading, agent.x0[3]]
-
+            x = xs[i][0][0] + t * dt * 1
+            y = xs[i][0][1] 
+            xs[i][t] = [x, y, 0, 1]
 
 # plot the xs first 
 plt.ion()
@@ -159,11 +158,13 @@ try:
         '''cost_start = time.time()'''
         for ii in range(mp_dynamics.TIMESTEPS):
             concatenated_states = np.concatenate([state[ii] for state in xs])
+            concatenated_states_t = torch.tensor(concatenated_states, requires_grad=True)
+            prev_control_inputs_t = torch.tensor(prev_control_inputs, requires_grad=True)
             for i, robot in enumerate(mp_dynamics.agent_list):
-                Qs[i].append(costs[i][0].hessian_x(concatenated_states, prev_control_inputs[i][ii]))
-                ls[i].append(costs[i][0].gradient_x(concatenated_states, prev_control_inputs[i][ii]))
-                Rs[i][i].append(costs[i][0].hessian_u(concatenated_states, prev_control_inputs[i][ii]))
-                total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, prev_control_inputs[i][ii]))
+                Qs[i].append(costs[i][0].hessian_x(concatenated_states_t, prev_control_inputs_t[i][ii])[0][0].detach().numpy())  
+                ls[i].append(costs[i][0].gradient_x(concatenated_states_t, prev_control_inputs_t[i][ii]))
+                Rs[i][i].append(costs[i][0].hessian_u(concatenated_states_t, prev_control_inputs_t[i][ii])[1][1].detach().numpy())
+                total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states_t, prev_control_inputs_t[i][ii]).detach().item())
 
         '''cost_end = time.time()
         print(f"Time taken for cost computation: {cost_end - cost_start}")'''
@@ -208,7 +209,6 @@ try:
         end = time.time()
         print(f"Time taken for iteration {total_time_steps}: {end - start}")
         print(total_time_steps)
-
 
 except KeyboardInterrupt:
     for ii in range(mp_dynamics.TIMESTEPS):
@@ -255,7 +255,7 @@ plt.ioff()
 # plot the whole state trajectorys
 plt.figure()
 for i in range(mp_dynamics.num_agents):
-    plt.plot(x_traj[i], y_traj[i], colors[i],  label=f'Robot {i}')
+    plt.plot(x_traj[i], y_traj[i], label=f'Robot {i}')
 plt.xlabel('X')
 plt.ylabel('Y')
 plt.title('State Trajectories')
@@ -264,7 +264,7 @@ plt.show()
 # plot the whole state trajectorys
 plt.figure()
 for i in range(mp_dynamics.num_agents):
-    plt.plot(headings[i], colors[i], label=f'Robot {i}')
+    plt.plot(headings[i], label=f'Robot {i}')
 plt.xlabel('Timestep')
 plt.ylabel('Heading')
 plt.title('Heading Trajectories')

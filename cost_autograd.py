@@ -11,7 +11,7 @@ class ProximityCost:
 
     def evaluate(self, x, u):
         dist = np.sqrt((x[4 * self.idx1] - x[4 * self.idx2])**2 + (x[4 * self.idx1 + 1] - x[4 * self.idx2 + 1])**2)
-        return 0.0 if dist > self.d_threshold else self.weight * (self.d_threshold - dist)
+        return 0.0 if dist > self.d_threshold else self.weight * (self.d_threshold - dist)**2
 
     def gradient_x(self, x, u):
         grad_x = elementwise_grad(self.evaluate, 0)
@@ -106,6 +106,7 @@ class OverallCost:
         total_cost = 0.0
         for subsystem_cost in self.subsystem_cost_functions:
             total_cost += subsystem_cost.evaluate(x, u)
+            # print(subsystem_cost.evaluate(x, u))
         return total_cost
 
     def gradient_x(self, x, u):

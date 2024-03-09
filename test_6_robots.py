@@ -8,8 +8,8 @@ from Diff_robot import UnicycleRobot
 from Costs import ProximityCost, OverallCost, ReferenceCost
 from MultiAgentDynamics import MultiAgentDynamics
 
-dt = 0.1
-HORIZON = 3.0
+dt = 0.15
+HORIZON = 6.0
 TIMESTEPS = int(HORIZON / dt)
 
 
