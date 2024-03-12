@@ -29,6 +29,18 @@ class UnicycleRobot:
         v_dot = u2
         return [x_dot, y_dot, theta_dot, v_dot]
 
+    def runge_kutta_4_integration(self,state, u1, u2, dt):
+        # Runge-Kutta 4 integration method
+
+        k1 = np.array(self.dynamics_for_given_state(state, u1, u2))
+        k2 = np.array(self.dynamics_for_given_state(state + 0.5 * dt * k1, u1, u2))
+        k3 = np.array(self.dynamics_for_given_state(state + 0.5 * dt * k2, u1, u2))
+        k4 = np.array(self.dynamics_for_given_state(state + dt * k3, u1, u2))
+
+        updated_state = [dt / 6.0 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]) + state[i] for i in range(4)]
+
+        return updated_state
+
     def integrate_dynamics_clone(self, u1, u2, dt):
         x_dot = self.dynamics(u1, u2)
         updated_state = self.state + self.dt * x_dot.detach().clone()
@@ -43,7 +55,8 @@ class UnicycleRobot:
     def integrate_dynamics_for_initial_state(self, state, u1s, u2s, dt, TIMESTEP):
         states = []
         for i in range(TIMESTEP):
-            state = self.integrate_dynamics_for_given_state(state, u1s[i], u2s[i], dt)
+            # state = self.integrate_dynamics_for_given_state(state, u1s[i], u2s[i], dt)
+            state = self.runge_kutta_4_integration(state, u1s[i], u2s[i], dt)
             states.append(state)
         return states
 

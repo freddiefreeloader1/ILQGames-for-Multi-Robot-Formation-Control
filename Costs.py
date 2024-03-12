@@ -9,15 +9,17 @@ class ProximityCost:
         self.idx1 = idx1
         self.idx2 = idx2
         self.weight = weight
+
     def evaluate(self, x, u):
         dist = np.sqrt((x[4*self.idx1] - x[4*self.idx2])**2 + (x[4*self.idx1 + 1] - x[4*self.idx2 + 1])**2)
-        return  0.0 if dist > self.d_threshold else self.weight * (self.d_threshold - dist)
+        return  0.0 if dist > self.d_threshold else self.weight * (self.d_threshold - dist)**2
 
     def gradient_x(self, x, u):
         dist = np.sqrt((x[4*self.idx1] - x[4*self.idx2])**2 + (x[4*self.idx1 + 1] - x[4*self.idx2 + 1])**2)
         if dist > self.d_threshold:
             return [0.0 for _ in range(len(x))]
-        denom = -self.weight/(2*np.sqrt((x[4*self.idx1] - x[4*self.idx2])**2 + (x[4*self.idx1 + 1] - x[4*self.idx2 + 1])**2) + 1e-6)
+        # denom = -self.weight/(2*np.sqrt((x[4*self.idx1] - x[4*self.idx2])**2 + (x[4*self.idx1 + 1] - x[4*self.idx2 + 1])**2) + 1e-6)
+        denom = - self.weight * 2 * (self.d_threshold - dist)
         grad_x = [0.0 for _ in range(len(x))] 
         grad_x[4*self.idx1] = 2*(x[4*self.idx1] - x[4*self.idx2])*denom
         grad_x[4*self.idx1 + 1] = 2*(x[4*self.idx1 + 1] - x[4*self.idx2 + 1])*denom
@@ -35,10 +37,10 @@ class ReferenceCost:
         self.weight = weight
 
     def evaluate(self, x, u):
-        dist = np.sqrt((x[4*self.idx] - self.x_ref[4*self.idx])**2 + 
-        (x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])**2 + 
+        dist = np.sqrt(4*(x[4*self.idx] - self.x_ref[4*self.idx])**2 + 
+        4*(x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])**2 + 
         (x[4*self.idx + 2] - self.x_ref[4*self.idx + 2])**2 + 
-        (x[4*self.idx + 3] - self.x_ref[4*self.idx + 3])**2)
+        (x[4*self.idx + 3] - self.x_ref[4*self.idx + 3])**2)**2
         return dist * self.weight
     
     def gradient_x(self, x, u):
@@ -46,10 +48,10 @@ class ReferenceCost:
         (x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])**2 + 
         (x[4*self.idx + 2] - self.x_ref[4*self.idx + 2])**2 + 
         (x[4*self.idx + 3] - self.x_ref[4*self.idx + 3])**2))
-
+        denom = self.weight
         grad_x = [0.0 for _ in range(len(x))] 
-        grad_x[4*self.idx] = 2*(x[4*self.idx] - self.x_ref[4*self.idx])*denom
-        grad_x[4*self.idx + 1] = 2*(x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])*denom
+        grad_x[4*self.idx] = 8*(x[4*self.idx] - self.x_ref[4*self.idx])*denom
+        grad_x[4*self.idx + 1] = 8*(x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])*denom
         grad_x[4*self.idx + 2] = 2*(x[4*self.idx + 2] - self.x_ref[4*self.idx + 2])*denom
         grad_x[4*self.idx + 3] = 2*(x[4*self.idx + 3] - self.x_ref[4*self.idx + 3])*denom
         return grad_x
@@ -63,15 +65,15 @@ class InputCost:
         self.weight = weight
         self.idx = idx
     def evaluate(self, x, u):
-        return self.weight * (10*u[0]**2 + 14*u[1]**2)
+        return self.weight * (10*u[0]**2 + 20*u[1]**2)
 
     def gradient_x(self, x, u):
         return [0.0 for _ in range(len(x))]
     
     def gradient_u(self, x, u):
         grad_u = [0.0 for _ in range(len(u))]
-        grad_u[0] = 2*self.weight*u[0]*5
-        grad_u[1] = 2*self.weight*u[1]*7
+        grad_u[0] = 20*self.weight*u[0]
+        grad_u[1] = 40*self.weight*u[1]
         return grad_u
 
 

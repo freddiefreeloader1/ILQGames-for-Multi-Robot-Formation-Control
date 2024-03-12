@@ -9,8 +9,8 @@ from MultiAgentDynamics import MultiAgentDynamics
 
 
 
-dt = 0.15
-HORIZON = 6.0
+dt = 0.1
+HORIZON = 10.0
 TIMESTEPS = int(HORIZON / dt)
 scenerio = "overtaking"
 
@@ -46,6 +46,20 @@ if scenerio == "overtaking":
     x_ref_5 = np.array([-2, 0, 0, 0])
     x_ref_6 = np.array([0, -1, 0, 0])
 
+if scenerio == "arrow":
+    x0_1 = [-3.0, -2.0, 0.0, 1.1]
+    x0_2 = [-3.0, 2.0, 0.0, 1]
+    x0_3 = [-3.0, 0.0, 0, 0.8]
+    x0_4 = [-2.0, 3.0, 0.0, 0.0]
+    x0_5 = [0.0, 1.0, 0.0, 0.0]
+    x0_6 = [1.0, 0.0, 0.0, 0.0]
+
+    x_ref_1 = np.array([0, 0, 0, 0])
+    x_ref_2 = np.array([0, -2, 0, 0])
+    x_ref_3 = np.array([0, 2, 0, 0])
+    x_ref_4 = np.array([2, 0, 0, 0])
+    x_ref_5 = np.array([-2, 0, 0, 0])
+    x_ref_6 = np.array([0, -1, 0, 0])
 
 
 robot1 = UnicycleRobot(x0_1, x_ref_1, dt)
@@ -81,24 +95,25 @@ flag = 0
 last_points = None
 current_points = None
 
+u1 = [[0.0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
+u2 = [[0.0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
+
 ksi = [[[] for agent in mp_dynamics.agent_list], [[0,0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]]
-u1 = [[0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
-u2 = [[0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
+# make u1 sinusoidal
+for i in range(mp_dynamics.num_agents):
+    for t in range(mp_dynamics.TIMESTEPS):
+        u1[i][t] = 0.5*np.sin(t*mp_dynamics.dt)
+        u2[i][t] = 0.0
+
+# u1 = [[0.0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
+# u2 = [[4]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
 xs = [[0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
 
-# define xs as sinusoidal trajectory for each robot 
-for i, agent in enumerate(mp_dynamics.agent_list):
-    xs[i] = [agent.x0 for _ in range(mp_dynamics.TIMESTEPS)]
-    for t in range(mp_dynamics.TIMESTEPS):
-        if t != 0:
-            # the initial trajectort should be a straight line to reference
-            x_dif = (agent.xref[0] - agent.x0[0])/mp_dynamics.TIMESTEPS
-            y_dif = (agent.xref[1] - agent.x0[1])/mp_dynamics.TIMESTEPS
-            heading = np.arctan2(y_dif, x_dif)
-            xs[i][t] = [xs[i][t-1][0] + x_dif, xs[i][t-1][1] + y_dif, heading, agent.x0[3]]
+xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt)
 
 
 # plot the xs first 
+
 plt.ion()
 fig, ax = plt.subplots()
 ax.set_xlim(-4, 4)
@@ -127,13 +142,18 @@ plt.close()
 
 
 prev_control_inputs = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2))
-# make prev_control_inputs sinusoidal
+
 for i in range(mp_dynamics.num_agents):
     for t in range(mp_dynamics.TIMESTEPS):
-        prev_control_inputs[i][t] = [0, 0]
+        prev_control_inputs[i][t] = [u1[i][t], u2[i][t]]
 
 control_inputs = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2))
 total_costs = []
+total_ref_costs = []
+total_prox_costs = []
+total_wall_costs = []
+total_input_costs = []
+
 
 try:
     while (flag == 0):
@@ -156,6 +176,11 @@ try:
 
         # Iterate over timesteps
         total_costs.append([])
+        total_ref_costs.append([])
+        total_prox_costs.append([])
+        total_wall_costs.append([])
+        total_input_costs.append([])
+
         '''cost_start = time.time()'''
         for ii in range(mp_dynamics.TIMESTEPS):
             concatenated_states = np.concatenate([state[ii] for state in xs])
@@ -164,6 +189,11 @@ try:
                 ls[i].append(costs[i][0].gradient_x(concatenated_states, prev_control_inputs[i][ii]))
                 Rs[i][i].append(costs[i][0].hessian_u(concatenated_states, prev_control_inputs[i][ii]))
                 total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, prev_control_inputs[i][ii]))
+                total_ref_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[0].evaluate(concatenated_states, prev_control_inputs[i][ii]))
+                total_input_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[4].evaluate(concatenated_states, prev_control_inputs[i][ii]))
+                total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[1].evaluate(concatenated_states, prev_control_inputs[i][ii]))
+                total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[2].evaluate(concatenated_states, prev_control_inputs[i][ii]))
+                total_wall_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[3].evaluate(concatenated_states, prev_control_inputs[i][ii]))
 
         '''cost_end = time.time()
         print(f"Time taken for cost computation: {cost_end - cost_start}")'''
@@ -175,6 +205,12 @@ try:
 
         # sum the costs 
         total_costs[total_time_steps] = sum(total_costs[total_time_steps])
+        total_ref_costs[total_time_steps] = sum(total_ref_costs[total_time_steps])
+        total_prox_costs[total_time_steps] = sum(total_prox_costs[total_time_steps])
+        total_wall_costs[total_time_steps] = sum(total_wall_costs[total_time_steps])
+        total_input_costs[total_time_steps] = sum(total_input_costs[total_time_steps])
+
+
         Ps, alphas = solve_lq_game(As, Bs, Qs, ls, Rs)
 
         u1_array = np.array(u1)
@@ -219,15 +255,24 @@ except KeyboardInterrupt:
     for ii in range(len(total_costs)):
         if type(total_costs[ii]) is list: 
             total_costs[ii] = sum(total_costs[ii])
+            total_ref_costs[ii] = sum(total_ref_costs[ii])
+            total_prox_costs[ii] = sum(total_prox_costs[ii])
+            total_wall_costs[ii] = sum(total_wall_costs[ii])
+            total_input_costs[ii] = sum(total_input_costs[ii])
+
     
 # plot costs
 plt.figure()
 plt.plot(total_costs)
+plt.plot(total_ref_costs)
+plt.plot(total_prox_costs)
+plt.plot(total_wall_costs)
+plt.plot(total_input_costs)
+plt.legend(['Total Cost', 'Reference Cost', 'Proximity Cost', 'Wall Cost', 'Input Cost'])
 plt.xlabel('Time Step')
 plt.ylabel('Cost')
 plt.title('Costs over Time')
 plt.show()
-
 
 plt.ion()
 fig, ax = plt.subplots()
