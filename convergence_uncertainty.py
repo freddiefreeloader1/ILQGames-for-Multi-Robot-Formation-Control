@@ -11,7 +11,7 @@ from MultiAgentDynamics import MultiAgentDynamics
 
 
 dt = 0.1
-HORIZON = 6.0
+HORIZON = 3.0
 TIMESTEPS = int(HORIZON / dt)
 scenerio = "overtaking"
 
@@ -58,7 +58,7 @@ robot6 = UnicycleRobot(x0_6, x_ref_6, dt)
 # mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3, robot4, robot5, robot6], dt, HORIZON)
 mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3], dt, HORIZON)
 
-costs = mp_dynamics.define_costs_lists()
+costs = mp_dynamics.define_costs_lists(uncertainty=True)
 
 x_traj = [[] for _ in range(mp_dynamics.num_agents)]
 y_traj = [[] for _ in range(mp_dynamics.num_agents)]
@@ -76,7 +76,7 @@ Rs = mp_dynamics.get_control_cost_matrix()
 total_time_steps = 0
 reshaped_inputs = mp_dynamics.reshape_control_inputs()
 flag = 0
-# define ksi as [[[state1],[state2]]...,[[input1], [input2]]]
+
 last_points = None
 current_points = None
 
@@ -99,18 +99,27 @@ for i, agent in enumerate(mp_dynamics.agent_list):
 prev_control_inputs = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2))
 control_inputs = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2))
 total_costs = []
-lambda_ = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, mp_dynamics.num_agents-1))
-mu = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, mp_dynamics.num_agents-1))
+
+mu = np.array([[1.0, 1.0], [1.0, 1.0], [1.0, 1.0]])
 phi = 1.2
 
-Gs = np.empty((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, mp_dynamics.num_agents-1), dtype=object)
+Gs = np.empty((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, mp_dynamics.num_agents-1, 12), dtype=object)
 qs = np.empty((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, mp_dynamics.num_agents-1), dtype=object)
 rhos = np.empty((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, mp_dynamics.num_agents-1), dtype=object)
+
+# make Gs all zeros
+for i in range(mp_dynamics.num_agents):
+    for t in range(mp_dynamics.TIMESTEPS):
+        for j in range(mp_dynamics.num_agents-1):
+            Gs[i][t][j] = np.zeros((1, 12))
+            qs[i][t][j] = np.zeros(1)
+            rhos[i][t][j] = 0.0
+
 
 identity_size = 4
 
 # Create a block diagonal matrix of size 4 * num_agents by 4 * TIMESTEPS
-sigmas_block_diag = block_diag(*[np.eye(identity_size)*0.01 for _ in range(mp_dynamics.num_agents)])
+sigmas_block_diag = block_diag(*[np.eye(identity_size)*0.005 for _ in range(mp_dynamics.num_agents)])
 
 sigmas = np.array([sigmas_block_diag for _ in range(mp_dynamics.TIMESTEPS)])
 
@@ -121,17 +130,69 @@ for i in range(len(mp_dynamics.agent_list)):
             prox_cost_list[i].append(ProximityCost(1.0, i, j, 3.0))
 
 
+for i in range(mp_dynamics.num_agents):
+    for t in range(mp_dynamics.TIMESTEPS):
+        u1[i][t] = 0.5*np.sin(t*mp_dynamics.dt) 
+        # u1[i][t] = 0.0
+        u2[i][t] = 0.0
+
+# u1 = [[0.0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
+# u2 = [[4]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
+xs = [[0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
+
+xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt)
+As, Bs = mp_dynamics.get_linearized_dynamics_for_initial_state(xs,u1,u2)
+
+for ii in range(mp_dynamics.TIMESTEPS):
+                sigmas[ii] = As[ii] @ sigmas[ii] @ As[ii].T 
+
+Gs, qs, rhos = mp_dynamics.get_Gs(xs, prox_cost_list, sigmas)
+
+
+lambdas = np.zeros((mp_dynamics.num_agents, mp_dynamics.num_agents-1))
+
+TOL_CC_ERROR = 1e-3
+max_error = 100
+
+total_prox_costs = []
+
 try:
-    
     while(max_error > TOL_CC_ERROR):
-        
+        errors = []
+        if Gs[0][0][0] is not None:
+            for i, robot in enumerate(mp_dynamics.agent_list):
+                for j in range(mp_dynamics.TIMESTEPS):
+                    for k in range(mp_dynamics.num_agents-1):
+                        concatenated_states = np.concatenate([state[j] for state in xs])
+                        error = (Gs[i][j][k]@concatenated_states + qs[i][j][k] + rhos[i][j][k])
+                        errors.append(error)
+            max_error = np.float32(max(errors))
+        print(max_error)
+        for i in range(mp_dynamics.num_agents):
+            for j in range(mp_dynamics.num_agents-1):
+                lambdas[i][j] = max(0,lambdas[i][j] + mu[i][j] * np.abs((0.95 - max_error)))
+
+        for i in range(mp_dynamics.num_agents):
+            for j in range(mp_dynamics.num_agents-1):
+                mu[i][j] *= phi
+
         while (flag == 0):
+            start = time.time()
+
             last_points = current_points
+            
+            # integrate the dynamics
+            if total_time_steps != 0:
+                xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt)
+
             current_points = xs
-            xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt)
 
             # get the linearized dynamics
             As, Bs = mp_dynamics.get_linearized_dynamics_for_initial_state(xs,u1,u2)
+
+            for ii in range(mp_dynamics.TIMESTEPS):
+                sigmas[ii] = As[ii] @ sigmas[ii] @ As[ii].T 
+
             # get the linearized constraint matrices
             Gs, qs, rhos = mp_dynamics.get_Gs(xs, prox_cost_list, sigmas)
 
@@ -141,14 +202,19 @@ try:
 
             # Iterate over timesteps
             total_costs.append([])
+            total_prox_costs.append([])
+
             for ii in range(mp_dynamics.TIMESTEPS):
                 concatenated_states = np.concatenate([state[ii] for state in xs])
                 for i, robot in enumerate(mp_dynamics.agent_list):
-                    Qs[i].append(costs[i][0].hessian_x(concatenated_states, prev_control_inputs[i][ii]))
-                    ls[i].append(costs[i][0].gradient_x(concatenated_states, prev_control_inputs[i][ii]))
-                    Rs[i][i].append(costs[i][0].hessian_u(concatenated_states, prev_control_inputs[i][ii]))
-                    total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, prev_control_inputs[i][ii]))
-                    
+                    for k in range(len(mp_dynamics.agent_list)-1):
+                        Qs[i].append(costs[i][0].hessian_x(concatenated_states, prev_control_inputs[i][ii]))
+                        ls[i].append(costs[i][0].gradient_x(concatenated_states, prev_control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k]))
+                        Rs[i][i].append(costs[i][0].hessian_u(concatenated_states, prev_control_inputs[i][ii]))
+                        total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, prev_control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k]))
+                        total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[1].evaluate(concatenated_states, Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k]))
+                        total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[2].evaluate(concatenated_states, Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k]))
+
             # sum the costs 
             for i in range(mp_dynamics.num_agents):
                 for j in range(mp_dynamics.num_agents):
@@ -156,6 +222,7 @@ try:
                         Rs[i][j] = [np.zeros((2, 2)) for _ in range(mp_dynamics.TIMESTEPS)]       
 
             total_costs[total_time_steps] = sum(total_costs[total_time_steps])
+            total_prox_costs[total_time_steps] = sum(total_prox_costs[total_time_steps])
 
             Ps, alphas = solve_lq_game(As, Bs, Qs, ls, Rs)
 
@@ -188,6 +255,8 @@ try:
 
             total_time_steps += 1
             print(total_time_steps)
+            end = time.time()
+            print(end-start)
 
 except KeyboardInterrupt:
     for ii in range(mp_dynamics.TIMESTEPS):
@@ -198,10 +267,14 @@ except KeyboardInterrupt:
     for ii in range(len(total_costs)):
         if type(total_costs[ii]) is list: 
             total_costs[ii] = sum(total_costs[ii])
+            total_prox_costs[ii] = sum(total_prox_costs[ii])
+
     
 # plot costs
 plt.figure()
 plt.plot(total_costs)
+plt.plot(total_prox_costs)
+plt.legend(['Total Cost','Proximity Cost'])
 plt.xlabel('Time Step')
 plt.ylabel('Cost')
 plt.title('Costs over Time')

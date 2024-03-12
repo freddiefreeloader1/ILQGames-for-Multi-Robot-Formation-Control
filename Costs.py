@@ -26,6 +26,20 @@ class ProximityCost:
         grad_x[4*self.idx2] = -2*(x[4*self.idx1] - x[4*self.idx2])*denom
         grad_x[4*self.idx2 + 1] = -2*(x[4*self.idx1 + 1] - x[4*self.idx2 + 1])*denom
         return grad_x
+    def gradient_u(self, x, u):
+        return [0.0 for _ in range(len(u))]
+
+class ProximityCostUncertainLinear:
+    def __init__(self, weight = 1.0):
+        self.weight = weight
+
+    def evaluate(self, x, G, q, rho, lam):
+        cost = self.weight*lam*(G @ x  + q + rho)
+        return  cost
+
+    def gradient_x(self, x, G, lam):
+        grad_x = self.weight*np.array(G) * lam
+        return grad_x
 
     def gradient_u(self, x, u):
         return [0.0 for _ in range(len(u))]
@@ -140,25 +154,34 @@ class OverallCost:
     def __init__(self, subsystem_cost_functions):
         self.subsystem_cost_functions = subsystem_cost_functions
 
-    def evaluate(self, x, u):
+    def evaluate(self, x, u, G = 1, q = 1, rho = 1, lam = 1):
         total_cost = 0.0
         for subsystem_cost in self.subsystem_cost_functions:
-            total_cost += subsystem_cost.evaluate(x, u)
+            if isinstance(subsystem_cost, ProximityCostUncertainLinear):
+                total_cost += subsystem_cost.evaluate(x, G , q, rho, lam)
+            else:
+                total_cost += subsystem_cost.evaluate(x, u)
             # print(subsystem_cost.evaluate(x, u))
         return total_cost
     
-    def evaluate_grad(self, x, u):
+    def evaluate_grad(self, x, u, G = 1, q = 1, rho = 1, lam = 1):
         total_cost = np.zeros(len(x))
         for subsystem_cost in self.subsystem_cost_functions:
-            total_cost += np.array(subsystem_cost.gradient_x(x, u))
-            # print(subsystem_cost.evaluate(x, u))
+            if isinstance(subsystem_cost, ProximityCostUncertainLinear):
+                total_cost += np.array(subsystem_cost.gradient_x(x, G, lam))
+            else:
+                total_cost += np.array(subsystem_cost.gradient_x(x, u))
         return total_cost
 
-    def gradient_x(self, x, u):
+    def gradient_x(self, x, u, G = 1, q = 1, rho = 1, lam = 1):
         # grad_x = approx_fprime(x, lambda x: self.evaluate(x, u), epsilon=1e-6)
         grad_x = np.zeros(len(x))
         for subsystem_cost in self.subsystem_cost_functions:
-            grad_x += np.array(subsystem_cost.gradient_x(x, u))
+            if isinstance(subsystem_cost, ProximityCostUncertainLinear):
+                grad_x += np.array(subsystem_cost.gradient_x(x, G, lam))
+            else:
+                grad_x += np.array(subsystem_cost.gradient_x(x, u))
+
         return grad_x
 
     def gradient_u(self, x, u):
@@ -168,8 +191,8 @@ class OverallCost:
             grad_u += np.array(subsystem_cost.gradient_u(x, u))
         return grad_u
 
-    def hessian_x(self, x, u):
-        hessian_x = approx_fprime(x, lambda x: self.evaluate_grad(x, u), epsilon=1e-6)
+    def hessian_x(self, x, u, G = 1, q = 1, rho = 1, lam = 1):
+        hessian_x = approx_fprime(x, lambda x: self.evaluate_grad(x, u, G, q, rho), epsilon=1e-6)
         return hessian_x
 
     def hessian_x_2(self, x, u):

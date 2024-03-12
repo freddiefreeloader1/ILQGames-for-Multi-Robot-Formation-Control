@@ -12,7 +12,7 @@ from MultiAgentDynamics import MultiAgentDynamics
 dt = 0.2
 HORIZON = 10.0
 TIMESTEPS = int(HORIZON / dt)
-scenerio = "overtaking"
+scenerio = "intersection"
 
 if scenerio == "intersection":
     x0_1 = [-2.0, -2.0, 0.0, 1.0]
@@ -100,7 +100,7 @@ xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt)
 
 
 # plot the xs first 
-
+'''
 plt.ion()
 fig, ax = plt.subplots()
 ax.set_xlim(-4, 4)
@@ -124,7 +124,7 @@ for kk in range(mp_dynamics.TIMESTEPS):
 plt.ioff()
 
 # close the plot
-plt.close()
+plt.close()'''
 
 
 

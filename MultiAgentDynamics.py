@@ -1,6 +1,6 @@
 from scipy.linalg import block_diag
 
-from Costs import ProximityCost, OverallCost, ReferenceCost, WallCost, InputCost
+from Costs import ProximityCost, OverallCost, ReferenceCost, WallCost, InputCost, ProximityCostUncertainLinear
 # from costs_torch import ProximityCost, ReferenceCost, OverallCost, WallCost, InputCost
 # from cost_autograd import ProximityCost, ReferenceCost, OverallCost, WallCost, InputCost
 
@@ -54,7 +54,7 @@ class MultiAgentDynamics():
 
         return As, Bs
 
-    def define_costs_lists(self):
+    def define_costs_lists(self, uncertainty = False):
         ref_cost_list = [[] for _ in range(len(self.agent_list))]
         prox_cost_list = [[] for _ in range(len(self.agent_list))]
         wall_cost_list = [[] for _ in range(len(self.agent_list))]
@@ -65,11 +65,16 @@ class MultiAgentDynamics():
             ref_cost_list[i].append(ReferenceCost(i, self.xref_mp, 1))
             input_cost_list[i].append(InputCost(i, 2.0))
 
-        for i in range(len(self.agent_list)):
-            for j in range(len(self.agent_list)):
-                if i != j:
-                    prox_cost_list[i].append(ProximityCost(1.0, i, j, 200))
-
+        if uncertainty == False:
+            for i in range(len(self.agent_list)):
+                for j in range(len(self.agent_list)):
+                    if i != j:
+                        prox_cost_list[i].append(ProximityCost(1.0, i, j, 200))
+        else:
+            for i in range(len(self.agent_list)):
+                for j in range(len(self.agent_list)-1):
+                    prox_cost_list[i].append(ProximityCostUncertainLinear(100.0))
+                       
         for i in range(len(self.agent_list)):
             wall_cost_list[i].append(WallCost(i, 0.04))
 
@@ -91,7 +96,7 @@ class MultiAgentDynamics():
                 self.us[i][ii, :] = - np.transpose(0.1*alphas[i][ii]) - Ps[i][ii][1][4*i:4*(i+1)] @ (agent.state.detach().numpy() - self.xref_mp[4*i:4*(i+1)])
         return self.us
 
-    def compute_control_vector_current(self, Ps, alphas, xs, current_x, u_prev):
+    def compute_control_vector_current(self, Ps, alphas, xs, current_x, u_prev, zeta = 0.01):
         u_next = np.zeros((self.num_agents, self.TIMESTEPS, 2))
         if current_x is not None:
             for i, agent in enumerate(self.agent_list):
@@ -99,12 +104,39 @@ class MultiAgentDynamics():
                     # concatenate the states of all the robots
                     concatenated_states = np.concatenate([state[ii] for state in xs])
                     concatenated_states_current = np.concatenate([state[ii] for state in current_x])
-                    u_next[i][ii] = u_prev[i][ii] - 0.01*alphas[i][ii] - Ps[i][ii] @ (concatenated_states - concatenated_states_current)
+                    u_next[i][ii] = u_prev[i][ii] - zeta*alphas[i][ii] - Ps[i][ii] @ (concatenated_states - concatenated_states_current)
         else:
             for i, agent in enumerate(self.agent_list):
                 for ii in range(self.TIMESTEPS):
-                    u_next[i][ii] = u_prev[i][ii] - 0.01*alphas[i][ii]
+                    u_next[i][ii] = u_prev[i][ii] - zeta*alphas[i][ii]
         return u_next
+    
+    '''def line_search(self, Ps, alphas, xs, current_x, u_prev, c=0.5, tau=0.9):
+        zeta = 1.0
+        u_next = self.compute_control_vector_current(Ps, alphas, xs, current_x, u_prev)
+
+        while self.objective_function(u_next) > self.objective_function(u_prev) + c * zeta * np.sum(self.gradient_objective_function(u_prev) * (u_next - u_prev)):
+            zeta *= tau
+            u_next = self.compute_control_vector_current(Ps, alphas, xs, current_x, u_prev, zeta)
+        print(zeta)
+        return u_next
+
+    def objective_function(self, u):
+        # Calculate the cost associated with the control vector u
+        Rs_derivative = InputCost(0, 1.0).evaluate(u, [0]*self.num_agents*4)
+        
+        # Calculate the cost associated with the control vector u
+        cost = 0.5 * np.linalg.norm(Rs_derivative)**2
+        return cost
+   
+
+    def gradient_objective_function(self, u):
+        # Calculate the gradient of the cost associated with the control vector u
+        grad = np.zeros((self.num_agents, self.TIMESTEPS, 2))
+        for i in range(self.num_agents):
+            for j in range(self.TIMESTEPS):
+                grad[i][j] = u[i][j]
+        return grad'''
 
     def integrate_dynamics(self):
         for i, agent in enumerate(self.agent_list):
@@ -165,5 +197,5 @@ class MultiAgentDynamics():
                 for j in range(self.num_agents-1):
                     Gs[i][t][j] = prox_cost_list[i][j].gradient_x(xs_concatenated[t], [0]*self.num_agents*4)
                     qs[i][t][j] = prox_cost_list[i][j].evaluate(xs_concatenated[t], [0]*self.num_agents*4) - Gs[i][t][j] @ xs_concatenated[t]
-                    rhos[i][t][j] = np.sqrt(2*Gs[i][t][j]@sigmas[t]@Gs[i][t][j].T)*erfinv(2*self.prob - 1)
+                    rhos[i][t][j] = np.sqrt(2*(Gs[i][t][j]@sigmas[t])@np.array(Gs[i][t][j]).T)*erfinv(2*self.prob - 1)
         return Gs, qs, rhos 

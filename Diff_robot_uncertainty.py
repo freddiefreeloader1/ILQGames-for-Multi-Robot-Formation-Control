@@ -12,7 +12,7 @@ class UnicycleRobot:
         self.state = torch.tensor([x0[0], x0[1], x0[2], x0[3]], requires_grad=True)  # (x, y, theta, v)
         self.xref = xref
         self.dt = dt
-        self.uncertainty_params = {'A_uncertainty': 0.01, 'B_uncertainty': 0.01}
+        self.uncertainty_params = {'A_uncertainty': 0.005, 'B_uncertainty': 0.0}
 
     def set_uncertainty_params(self, A_uncertainty, B_uncertainty):
         self.uncertainty_params['A_uncertainty'] = A_uncertainty
@@ -34,7 +34,7 @@ class UnicycleRobot:
     def dynamics_for_given_state(self, state, u1, u2):
 
         A_uncertainty = np.random.normal(0, self.uncertainty_params['A_uncertainty'])
-        B_uncertainty = np.random.normal(0, self.uncertainty_params['B_uncertainty'])
+        B_uncertainty = 0
         x, y, theta, v  = state
 
         x_dot = v * np.cos(theta) + A_uncertainty
@@ -64,12 +64,13 @@ class UnicycleRobot:
         k4 = np.array(self.dynamics_for_given_state(state + dt * k3, u1, u2))
 
         updated_state = [dt / 6.0 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]) + state[i] for i in range(4)]
-
         return updated_state
+
     def integrate_dynamics_for_initial_state(self, state, u1s, u2s, dt, TIMESTEP):
         states = []
         for i in range(TIMESTEP):
-            # state = self.integrate_dynamics_for_given_state(state, u1s[i], u2s[i], dt)
+            #state = self.integrate_dynamics_for_given_state(state, u1s[i], u2s[i], dt)
+            state = self.runge_kutta_4_integration(state, u1s[i], u2s[i], dt)
             state = self.runge_kutta_4_integration(state, u1s[i], u2s[i], dt)
             states.append(state)
         return states
