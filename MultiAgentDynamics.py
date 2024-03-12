@@ -150,7 +150,7 @@ class MultiAgentDynamics():
         for i in range(len(current_points)):
             for j in range(len(current_points[i])):
                 for k in range(len(current_points[i][j])):
-                    if np.abs(np.array(current_points[i][j][k]) - np.array(last_points[i][j][k])) > 0.001:
+                    if np.abs(np.array(current_points[i][j][k]) - np.array(last_points[i][j][k])) > 0.01:
                         return 0
         return 1
 
