@@ -12,7 +12,7 @@ from MultiAgentDynamics import MultiAgentDynamics
 dt = 0.2
 HORIZON = 10.0
 TIMESTEPS = int(HORIZON / dt)
-scenerio = "intersection"
+scenerio = "overtaking"
 
 if scenerio == "intersection":
     x0_1 = [-2.0, -2.0, 0.0, 1.0]
@@ -84,7 +84,6 @@ current_points = None
 u1 = [[0.0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
 u2 = [[0.0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
 
-ksi = [[[] for agent in mp_dynamics.agent_list], [[0,0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]]
 # make u1 sinusoidal
 for i in range(mp_dynamics.num_agents):
     for t in range(mp_dynamics.TIMESTEPS):

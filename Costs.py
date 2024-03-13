@@ -79,7 +79,7 @@ class InputCost:
         self.weight = weight
         self.idx = idx
     def evaluate(self, x, u):
-        return self.weight * (10*u[0]**2 + 20*u[1]**2)
+        return self.weight * (10*u[0]**2 + 150*u[1]**2)
 
     def gradient_x(self, x, u):
         return [0.0 for _ in range(len(x))]
@@ -87,7 +87,7 @@ class InputCost:
     def gradient_u(self, x, u):
         grad_u = [0.0 for _ in range(len(u))]
         grad_u[0] = 20*self.weight*u[0]
-        grad_u[1] = 40*self.weight*u[1]
+        grad_u[1] = 300*self.weight*u[1]
         return grad_u
 
 

@@ -10,8 +10,8 @@ from MultiAgentDynamics import MultiAgentDynamics
 
 
 
-dt = 0.1
-HORIZON = 3.0
+dt = 0.2
+HORIZON = 6.0
 TIMESTEPS = int(HORIZON / dt)
 scenerio = "overtaking"
 
@@ -133,7 +133,7 @@ for i in range(len(mp_dynamics.agent_list)):
 for i in range(mp_dynamics.num_agents):
     for t in range(mp_dynamics.TIMESTEPS):
         u1[i][t] = 0.5*np.sin(t*mp_dynamics.dt) 
-        # u1[i][t] = 0.0
+        u1[i][t] = 0.0
         u2[i][t] = 0.0
 
 # u1 = [[0.0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
@@ -143,11 +143,14 @@ xs = [[0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
 xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt)
 As, Bs = mp_dynamics.get_linearized_dynamics_for_initial_state(xs,u1,u2)
 
-for ii in range(mp_dynamics.TIMESTEPS):
-                sigmas[ii] = As[ii] @ sigmas[ii] @ As[ii].T 
+'''for ii in range(mp_dynamics.TIMESTEPS):
+                sigmas[ii] = As[ii] @ sigmas[ii] @ As[ii].T''' 
 
 Gs, qs, rhos = mp_dynamics.get_Gs(xs, prox_cost_list, sigmas)
 
+for i in range(mp_dynamics.num_agents):
+    for t in range(mp_dynamics.TIMESTEPS):
+        prev_control_inputs[i][t] = [u1[i][t], u2[i][t]]
 
 lambdas = np.zeros((mp_dynamics.num_agents, mp_dynamics.num_agents-1))
 
@@ -178,7 +181,16 @@ try:
 
         while (flag == 0):
             start = time.time()
-
+            errors = []
+            if Gs[0][0][0] is not None:
+                for i, robot in enumerate(mp_dynamics.agent_list):
+                    for j in range(mp_dynamics.TIMESTEPS):
+                        for k in range(mp_dynamics.num_agents-1):
+                            concatenated_states = np.concatenate([state[j] for state in xs])
+                            error = (Gs[i][j][k]@concatenated_states + qs[i][j][k] + rhos[i][j][k])
+                            errors.append(error)
+                max_error = np.float32(max(errors))
+            print(max_error)
             last_points = current_points
             
             # integrate the dynamics
@@ -190,8 +202,8 @@ try:
             # get the linearized dynamics
             As, Bs = mp_dynamics.get_linearized_dynamics_for_initial_state(xs,u1,u2)
 
-            for ii in range(mp_dynamics.TIMESTEPS):
-                sigmas[ii] = As[ii] @ sigmas[ii] @ As[ii].T 
+            '''for ii in range(mp_dynamics.TIMESTEPS):
+                sigmas[ii] = As[ii] @ sigmas[ii] @ As[ii].T '''
 
             # get the linearized constraint matrices
             Gs, qs, rhos = mp_dynamics.get_Gs(xs, prox_cost_list, sigmas)
@@ -305,3 +317,11 @@ for kk in range(mp_dynamics.TIMESTEPS):
 plt.ioff()
 
 
+plt.figure()
+for i in range(mp_dynamics.num_agents):
+    plt.plot(x_traj[i], y_traj[i], colors[i],  label=f'Robot {i}')
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.title('State Trajectories')
+plt.legend()
+plt.show()

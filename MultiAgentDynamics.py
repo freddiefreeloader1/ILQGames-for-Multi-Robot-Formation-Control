@@ -62,14 +62,14 @@ class MultiAgentDynamics():
         overall_cost_list = [[] for _ in range(len(self.agent_list))]
 
         for i, agent in enumerate(self.agent_list):
-            ref_cost_list[i].append(ReferenceCost(i, self.xref_mp, 1))
+            ref_cost_list[i].append(ReferenceCost(i, self.xref_mp, 1.0))
             input_cost_list[i].append(InputCost(i, 2.0))
 
         if uncertainty == False:
             for i in range(len(self.agent_list)):
                 for j in range(len(self.agent_list)):
                     if i != j:
-                        prox_cost_list[i].append(ProximityCost(1.0, i, j, 200))
+                        prox_cost_list[i].append(ProximityCost(1.0, i, j, 200.0))
         else:
             for i in range(len(self.agent_list)):
                 for j in range(len(self.agent_list)-1):
