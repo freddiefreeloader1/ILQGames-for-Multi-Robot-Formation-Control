@@ -11,7 +11,7 @@ from MultiAgentDynamics import MultiAgentDynamics
 
 
 dt = 0.2
-HORIZON = 6.0
+HORIZON = 4.0
 TIMESTEPS = int(HORIZON / dt)
 scenerio = "overtaking"
 
@@ -67,9 +67,7 @@ headings = [[] for _ in range(mp_dynamics.num_agents)]
 ls = []
 Qs = []
 
-for i in range(mp_dynamics.num_agents):
-    Qs.append([costs[i][0].hessian_x(mp_dynamics.x0_mp, [0]*mp_dynamics.num_agents*4)]*mp_dynamics.TIMESTEPS)
-    ls.append([costs[i][0].gradient_x(mp_dynamics.x0_mp, [0]*mp_dynamics.num_agents*4)]*mp_dynamics.TIMESTEPS)
+
 
 Rs = mp_dynamics.get_control_cost_matrix()
 
@@ -100,7 +98,7 @@ prev_control_inputs = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2
 control_inputs = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2))
 total_costs = []
 
-mu = np.array([[1.0, 1.0], [1.0, 1.0], [1.0, 1.0]])
+mu = np.array([[2.0, 2.0], [2.0, 2.0], [2.0, 2.0]])
 phi = 1.2
 
 Gs = np.empty((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, mp_dynamics.num_agents-1, 12), dtype=object)
@@ -153,11 +151,21 @@ for i in range(mp_dynamics.num_agents):
         prev_control_inputs[i][t] = [u1[i][t], u2[i][t]]
 
 lambdas = np.zeros((mp_dynamics.num_agents, mp_dynamics.num_agents-1))
+Is = np.zeros((mp_dynamics.num_agents, mp_dynamics.num_agents-1))
+Is = mu
+
+'''for i in range(mp_dynamics.num_agents):
+    Qs.append([costs[i][0].hessian_x(mp_dynamics.x0_mp, [0]*mp_dynamics.num_agents*4)]*mp_dynamics.TIMESTEPS)
+    ls.append([costs[i][0].gradient_x(mp_dynamics.x0_mp, [0]*mp_dynamics.num_agents*4)]*mp_dynamics.TIMESTEPS)'''
 
 TOL_CC_ERROR = 1e-3
 max_error = 100
 
+total_costs = []
+total_ref_costs = []
 total_prox_costs = []
+total_wall_costs = []
+total_input_costs = []
 
 try:
     while(max_error > TOL_CC_ERROR):
@@ -173,7 +181,8 @@ try:
         print(max_error)
         for i in range(mp_dynamics.num_agents):
             for j in range(mp_dynamics.num_agents-1):
-                lambdas[i][j] = max(0,lambdas[i][j] + mu[i][j] * np.abs((0.95 - max_error)))
+                lambdas[i][j] = max(0,lambdas[i][j] + mu[i][j] * np.abs((0.50 - max_error)))
+                Is[i][j] = 0 if (0.5 - max_error < 0.0)&(lambdas[i][j] == 0) else mu[i][j]
 
         for i in range(mp_dynamics.num_agents):
             for j in range(mp_dynamics.num_agents-1):
@@ -190,7 +199,7 @@ try:
                             error = (Gs[i][j][k]@concatenated_states + qs[i][j][k] + rhos[i][j][k])
                             errors.append(error)
                 max_error = np.float32(max(errors))
-            print(max_error)
+            print('Max Error:', max_error)
             last_points = current_points
             
             # integrate the dynamics
@@ -214,18 +223,26 @@ try:
 
             # Iterate over timesteps
             total_costs.append([])
+            total_ref_costs.append([])
             total_prox_costs.append([])
+            total_wall_costs.append([])
+            total_input_costs.append([])
 
             for ii in range(mp_dynamics.TIMESTEPS):
                 concatenated_states = np.concatenate([state[ii] for state in xs])
                 for i, robot in enumerate(mp_dynamics.agent_list):
                     for k in range(len(mp_dynamics.agent_list)-1):
-                        Qs[i].append(costs[i][0].hessian_x(concatenated_states, prev_control_inputs[i][ii]))
-                        ls[i].append(costs[i][0].gradient_x(concatenated_states, prev_control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k]))
+                        Qs[i].append(costs[i][0].hessian_x(concatenated_states, prev_control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k], Is[i][k]))
+                        ls[i].append(costs[i][0].gradient_x(concatenated_states, prev_control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k], Is[i][k]))
                         Rs[i][i].append(costs[i][0].hessian_u(concatenated_states, prev_control_inputs[i][ii]))
-                        total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, prev_control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k]))
+                        total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, prev_control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k], Is[i][k]))
                         total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[1].evaluate(concatenated_states, Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k]))
-                        total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[2].evaluate(concatenated_states, Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k]))
+                        total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[3].evaluate(concatenated_states, Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k]))
+                        total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[2].evaluate(concatenated_states, Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], Is[i][k]))
+                        total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[4].evaluate(concatenated_states, Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], Is[i][k]))
+                        total_ref_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[0].evaluate(concatenated_states, prev_control_inputs[i][ii]))
+                        total_input_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[6].evaluate(concatenated_states, prev_control_inputs[i][ii]))
+                        total_wall_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[5].evaluate(concatenated_states, prev_control_inputs[i][ii]))
 
             # sum the costs 
             for i in range(mp_dynamics.num_agents):
@@ -235,6 +252,10 @@ try:
 
             total_costs[total_time_steps] = sum(total_costs[total_time_steps])
             total_prox_costs[total_time_steps] = sum(total_prox_costs[total_time_steps])
+            total_ref_costs[total_time_steps] = sum(total_ref_costs[total_time_steps])
+            total_input_costs[total_time_steps] = sum(total_input_costs[total_time_steps])
+            total_wall_costs[total_time_steps] = sum(total_wall_costs[total_time_steps])
+
 
             Ps, alphas = solve_lq_game(As, Bs, Qs, ls, Rs)
 
@@ -266,9 +287,11 @@ try:
                         headings[i].append(xs[i][ii][2])
 
             total_time_steps += 1
-            print(total_time_steps)
+            # print the iteration with text
+            print(f'Iteration {total_time_steps}')
+            
             end = time.time()
-            print(end-start)
+            print(f'Time: {end - start}')
 
 except KeyboardInterrupt:
     for ii in range(mp_dynamics.TIMESTEPS):
@@ -280,13 +303,21 @@ except KeyboardInterrupt:
         if type(total_costs[ii]) is list: 
             total_costs[ii] = sum(total_costs[ii])
             total_prox_costs[ii] = sum(total_prox_costs[ii])
+            total_ref_costs[ii] = sum(total_ref_costs[ii])
+            total_input_costs[ii] = sum(total_input_costs[ii])
+            total_wall_costs[ii] = sum(total_wall_costs[ii])
+
 
     
 # plot costs
 plt.figure()
 plt.plot(total_costs)
 plt.plot(total_prox_costs)
-plt.legend(['Total Cost','Proximity Cost'])
+plt.plot(total_ref_costs)
+plt.plot(total_input_costs)
+plt.plot(total_wall_costs)
+
+plt.legend(['Total Cost','Proximity Cost', 'Reference Cost', 'Input Cost', 'Wall Cost'])
 plt.xlabel('Time Step')
 plt.ylabel('Cost')
 plt.title('Costs over Time')

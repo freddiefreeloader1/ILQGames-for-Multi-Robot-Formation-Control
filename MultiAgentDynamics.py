@@ -1,6 +1,6 @@
 from scipy.linalg import block_diag
 
-from Costs import ProximityCost, OverallCost, ReferenceCost, WallCost, InputCost, ProximityCostUncertainLinear
+from Costs import ProximityCost, OverallCost, ReferenceCost, WallCost, InputCost, ProximityCostUncertainLinear, ProximityCostUncertainQuad
 # from costs_torch import ProximityCost, ReferenceCost, OverallCost, WallCost, InputCost
 # from cost_autograd import ProximityCost, ReferenceCost, OverallCost, WallCost, InputCost
 
@@ -16,7 +16,7 @@ class MultiAgentDynamics():
         self.xref_mp = np.concatenate([agent.xref for agent in agent_list])
         self.TIMESTEPS = int(HORIZON/dt)
         self.us = self.get_control_vector()
-        self.prob = 0.95
+        self.prob = 0.50
 
     def get_linearized_dynamics(self, u_list):
         A_traj_mp = []
@@ -74,6 +74,7 @@ class MultiAgentDynamics():
             for i in range(len(self.agent_list)):
                 for j in range(len(self.agent_list)-1):
                     prox_cost_list[i].append(ProximityCostUncertainLinear(100.0))
+                    prox_cost_list[i].append(ProximityCostUncertainQuad(5.0))
                        
         for i in range(len(self.agent_list)):
             wall_cost_list[i].append(WallCost(i, 0.04))
