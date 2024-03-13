@@ -1,6 +1,8 @@
 #include <iostream>
 #include <C:\Program Files\Eigen3\Eigen\Dense>
 #include <memory>
+#include <chrono>
+#include <thread>
 
 using namespace Eigen;
 
@@ -334,36 +336,40 @@ public:
 
 int main() {
     // Example usage
-    VectorXd x_ref(8);
-    x_ref << 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0;
+    VectorXd x_ref(12);
+    x_ref << 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0;
 
     std::shared_ptr<ProximityCost> proximity_cost = std::make_shared<ProximityCost>(0.8, 0, 1, 1.0);
     std::shared_ptr<ReferenceCost> reference_cost = std::make_shared<ReferenceCost>(0, x_ref, 1.0);
     std::shared_ptr<WallCost> wall_cost = std::make_shared<WallCost>(0, 1.0);
-    std::shared_ptr<InputCost> input_cost = std::make_shared<InputCost>(5.0, 3.0);
+    std::shared_ptr<InputCost> input_cost = std::make_shared<InputCost>(5.0, 10.0);
 
      // Declare and initialize x
-    Eigen::VectorXd x_example(8); // Declare and initialize x_example
+    Eigen::VectorXd x_example(12); // Declare and initialize x_example
     Eigen::VectorXd u_example(2); // Declare and initialize u_example
 
-    x_example << 1.0, 2.0, 3.0, 4.0, 1.1, 2.3, 7.0, 3.5;
+    x_example << 1.0, 2.0, 3.0, 4.0, 1.1, 2.3, 7.0, 3.5, 4.0, 5.0, 6.0, 7.0;
     u_example << 9.0, 10.0;
 
  
     std::vector<std::shared_ptr<CostBase>> all_costs = {proximity_cost, reference_cost, wall_cost, input_cost};
-
-
     OverallCost overall_cost_all(all_costs);
+
     double total_cost_all = overall_cost_all.evaluate(x_example, u_example);
+    
+    auto start = std::chrono::high_resolution_clock::now();
     Eigen::VectorXd gradient_x_all = overall_cost_all.gradient_x(x_example, u_example);
     Eigen::MatrixXd hessian_x_all = overall_cost_all.hessian_x(x_example, u_example);
     Eigen::MatrixXd hessian_u_all = overall_cost_all.hessian_u(x_example, u_example);
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
 
 
     std::cout << "Total cost for all costs: " << total_cost_all << std::endl;
     std::cout << "Gradient w.r.t. x for all costs: " << gradient_x_all << std::endl;
     std::cout << "Hessian w.r.t. x for all costs: " << hessian_x_all << std::endl;
     std::cout << "Hessian w.r.t. u for all costs: " << hessian_u_all << std::endl;
+    std::cout << "Time taken by calculations: " << duration.count() << " microseconds" << std::endl;
 
     return 0;
 }
