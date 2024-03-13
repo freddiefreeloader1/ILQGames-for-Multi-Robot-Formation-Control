@@ -11,7 +11,6 @@ public:
     virtual Eigen::VectorXd gradient_u(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const = 0;
     virtual Eigen::MatrixXd hessian_x(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const = 0;
     virtual Eigen::MatrixXd hessian_u(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const = 0;
-    // Add any other necessary methods or members.
 };
 
 class ProximityCost : public CostBase {
@@ -25,7 +24,7 @@ public:
 
     double evaluate(const VectorXd& x, const VectorXd& u) const {
         double dist = std::sqrt(std::pow(x[4 * idx1] - x[4 * idx2], 2) + std::pow(x[4 * idx1 + 1] - x[4 * idx2 + 1], 2));
-        return (dist > d_threshold) ? 0.0 : weight * (d_threshold - dist);
+        return (dist > d_threshold) ? 0.0 : weight * std::pow((d_threshold - dist),2);
     }
 
     VectorXd gradient_x(const VectorXd& x, const VectorXd& u) const {
@@ -34,8 +33,8 @@ public:
             return VectorXd::Zero(x.size());
         }
 
-        double denom = -weight / (2 * std::sqrt(std::pow(x[4 * idx1] - x[4 * idx2], 2) + std::pow(x[4 * idx1 + 1] - x[4 * idx2 + 1], 2)) + 1e-6);
-
+        // double denom = -weight / (2 * std::sqrt(std::pow(x[4 * idx1] - x[4 * idx2], 2) + std::pow(x[4 * idx1 + 1] - x[4 * idx2 + 1], 2)) + 1e-6);
+        double denom = weight * 2 * (d_threshold - dist);
         VectorXd grad_x = VectorXd::Zero(x.size());
         grad_x[4 * idx1] = 2 * (x[4 * idx1] - x[4 * idx2]) * denom;
         grad_x[4 * idx1 + 1] = 2 * (x[4 * idx1 + 1] - x[4 * idx2 + 1]) * denom;
@@ -50,7 +49,19 @@ public:
     }
 
     Eigen::MatrixXd hessian_x(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const {
-        return Eigen::MatrixXd::Zero(x.size(), x.size());
+        double dist = std::sqrt(std::pow(x[4 * idx1] - x[4 * idx2], 2) + std::pow(x[4 * idx1 + 1] - x[4 * idx2 + 1], 2));
+        if (dist > d_threshold) {
+            return Eigen::MatrixXd::Zero(x.size(), x.size());
+        }
+        MatrixXd hessian_x_matrix = MatrixXd::Zero(x.size(), x.size());
+        double denom = weight * 2 * (d_threshold - dist);
+        for (int i = 0; i < 2; i++) {
+            hessian_x_matrix(4 * idx1 + i, 4 * idx1 + i) = 2 * denom;
+            hessian_x_matrix(4 * idx1 + i, 4 * idx2 + i) = -2 * denom;
+            hessian_x_matrix(4 * idx2 + i, 4 * idx1 + i) = -2 * denom;
+            hessian_x_matrix(4 * idx2 + i, 4 * idx2 + i) = 2 * denom;
+        }
+        return hessian_x_matrix;
     }
 
     Eigen::MatrixXd hessian_u(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const {
@@ -68,10 +79,10 @@ public:
         : idx(idx), x_ref(x_ref), weight(weight) {}
 
     double evaluate(const VectorXd& x, const VectorXd& u) const {
-        double dist = std::sqrt(std::pow(x[4 * idx] - x_ref[4 * idx], 2) +
+        double dist = std::pow(std::sqrt(std::pow(x[4 * idx] - x_ref[4 * idx], 2) +
                                 std::pow(x[4 * idx + 1] - x_ref[4 * idx + 1], 2) +
                                 std::pow(x[4 * idx + 2] - x_ref[4 * idx + 2], 2) +
-                                std::pow(x[4 * idx + 3] - x_ref[4 * idx + 3], 2));
+                                std::pow(x[4 * idx + 3] - x_ref[4 * idx + 3], 2)),2);
         return dist * weight;
     }
 
@@ -82,6 +93,7 @@ public:
                                               std::pow(x[4 * idx + 3] - x_ref[4 * idx + 3], 2)));
 
         VectorXd grad_x = VectorXd::Zero(x.size());
+        denom = weight;
         grad_x[4 * idx] = 2 * (x[4 * idx] - x_ref[4 * idx]) * denom;
         grad_x[4 * idx + 1] = 2 * (x[4 * idx + 1] - x_ref[4 * idx + 1]) * denom;
         grad_x[4 * idx + 2] = 2 * (x[4 * idx + 2] - x_ref[4 * idx + 2]) * denom;
@@ -95,7 +107,11 @@ public:
     }
 
     Eigen::MatrixXd hessian_x(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const {
-        return Eigen::MatrixXd::Zero(x.size(), x.size());
+        MatrixXd hessian_x_matrix = MatrixXd::Zero(x.size(), x.size());
+        for (int i = 0; i < 4; i++) {
+            hessian_x_matrix(4 * idx + i, 4 * idx + i) = 2 * weight;
+        }
+        return hessian_x_matrix;
     }
 
         Eigen::MatrixXd hessian_u(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const {
@@ -103,7 +119,8 @@ public:
         }
     };
 
-    class WallCost : public CostBase {
+    
+class WallCost : public CostBase {
     public:
         int idx;
         double weight;
@@ -164,7 +181,28 @@ public:
         }
 
         Eigen::MatrixXd hessian_x(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const {
-            return Eigen::MatrixXd::Zero(x.size(), x.size());
+            // calculate the hessian 
+            MatrixXd hessian_x_matrix = MatrixXd::Zero(x.size(), x.size());
+            double x_robot = x[4 * idx];
+            double y_robot = x[4 * idx + 1];
+
+            double side_length = 7.0;
+            double x_center = 0.0;
+            double y_center = 0.0;
+
+            double dx = std::max(0.0, std::abs(x_robot - x_center) - 0.5 * side_length);
+            double dy = std::max(0.0, std::abs(y_robot - y_center) - 0.5 * side_length);
+
+            if (dx > 0) {
+                hessian_x_matrix(4 * idx, 4 * idx) = 2 * weight;
+            }
+
+            if (dy > 0) {
+                hessian_x_matrix(4 * idx + 1, 4 * idx + 1) = 2 * weight;
+            }
+
+            return hessian_x_matrix;
+          
         }
 
         Eigen::MatrixXd hessian_u(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const {
@@ -174,12 +212,13 @@ public:
 
 class InputCost : public CostBase {
 public:
-    double weight;
+    double weight_1;
+    double weight_2;
 
-    InputCost(double weight = 1.0) : weight(weight) {}
+    InputCost(double weight_1 = 1.0, double weight_2 = 1.0) : weight_1(weight_1), weight_2(weight_2) {}
 
     double evaluate(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const {
-        return weight * u.squaredNorm();
+        return weight_1 * u[0] * u[0] + weight_2 * u[1] * u[1]; // use weight_1 for the first input and weight_2 for the second
     }
 
     VectorXd gradient_x(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const {
@@ -187,7 +226,10 @@ public:
     }
 
     VectorXd gradient_u(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const {
-        return 2 * weight * u;
+        VectorXd grad_u(u.size());
+        grad_u[0] = 2 * weight_1 * u[0]; // use weight_1 for the first input
+        grad_u[1] = 2 * weight_2 * u[1]; // use weight_2 for the second input
+        return grad_u;
     }
 
     Eigen::MatrixXd hessian_x(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const {
@@ -195,7 +237,10 @@ public:
     }
 
     Eigen::MatrixXd hessian_u(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const {
-        return 2 * weight * Eigen::MatrixXd::Identity(u.size(), u.size());
+        Eigen::MatrixXd hessian_u_matrix = Eigen::MatrixXd::Zero(u.size(), u.size());
+        hessian_u_matrix(0, 0) = 2 * weight_1; // use weight_1 for the first input
+        hessian_u_matrix(1, 1) = 2 * weight_2; // use weight_2 for the second input
+        return hessian_u_matrix;
     }
 };
 
@@ -289,39 +334,24 @@ public:
 
 int main() {
     // Example usage
-    std::shared_ptr<ProximityCost> proximity_cost = std::make_shared<ProximityCost>(0.5, 0, 1, 1.0);
-    std::shared_ptr<ReferenceCost> reference_cost = std::make_shared<ReferenceCost>(0, VectorXd::Zero(8), 1.0);
-    std::shared_ptr<WallCost> wall_cost = std::make_shared<WallCost>(0, 1.0);
-    std::shared_ptr<InputCost> input_cost = std::make_shared<InputCost>(1.0);
+    VectorXd x_ref(8);
+    x_ref << 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0;
 
+    std::shared_ptr<ProximityCost> proximity_cost = std::make_shared<ProximityCost>(0.8, 0, 1, 1.0);
+    std::shared_ptr<ReferenceCost> reference_cost = std::make_shared<ReferenceCost>(0, x_ref, 1.0);
+    std::shared_ptr<WallCost> wall_cost = std::make_shared<WallCost>(0, 1.0);
+    std::shared_ptr<InputCost> input_cost = std::make_shared<InputCost>(5.0, 3.0);
+
+     // Declare and initialize x
     Eigen::VectorXd x_example(8); // Declare and initialize x_example
     Eigen::VectorXd u_example(2); // Declare and initialize u_example
 
-    x_example << 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0;
+    x_example << 1.0, 2.0, 3.0, 4.0, 1.1, 2.3, 7.0, 3.5;
     u_example << 9.0, 10.0;
 
-    std::vector<std::shared_ptr<CostBase>> proximity_costs = {proximity_cost};
-    std::vector<std::shared_ptr<CostBase>> reference_costs = {reference_cost};
-    std::vector<std::shared_ptr<CostBase>> wall_costs = {wall_cost};
+ 
     std::vector<std::shared_ptr<CostBase>> all_costs = {proximity_cost, reference_cost, wall_cost, input_cost};
 
-    OverallCost overall_cost_proximity(proximity_costs);
-    double total_cost_proximity = overall_cost_proximity.evaluate(x_example, u_example);
-    Eigen::VectorXd gradient_x_proximity = overall_cost_proximity.gradient_x(x_example, u_example);
-    Eigen::MatrixXd hessian_x_proximity = overall_cost_proximity.hessian_x(x_example, u_example);
-    Eigen::MatrixXd hessian_u_proximity = overall_cost_proximity.hessian_u(x_example, u_example);
-
-    OverallCost overall_cost_reference(reference_costs);
-    double total_cost_reference = overall_cost_reference.evaluate(x_example, u_example);
-    Eigen::VectorXd gradient_x_reference = overall_cost_reference.gradient_x(x_example, u_example);
-    Eigen::MatrixXd hessian_x_reference = overall_cost_reference.hessian_x(x_example, u_example);
-    Eigen::MatrixXd hessian_u_reference = overall_cost_reference.hessian_u(x_example, u_example);
-
-    OverallCost overall_cost_wall(wall_costs);
-    double total_cost_wall = overall_cost_wall.evaluate(x_example, u_example);
-    Eigen::VectorXd gradient_x_wall = overall_cost_wall.gradient_x(x_example, u_example);
-    Eigen::MatrixXd hessian_x_wall = overall_cost_wall.hessian_x(x_example, u_example);
-    Eigen::MatrixXd hessian_u_wall = overall_cost_wall.hessian_u(x_example, u_example);
 
     OverallCost overall_cost_all(all_costs);
     double total_cost_all = overall_cost_all.evaluate(x_example, u_example);
@@ -330,12 +360,10 @@ int main() {
     Eigen::MatrixXd hessian_u_all = overall_cost_all.hessian_u(x_example, u_example);
 
 
-
     std::cout << "Total cost for all costs: " << total_cost_all << std::endl;
     std::cout << "Gradient w.r.t. x for all costs: " << gradient_x_all << std::endl;
     std::cout << "Hessian w.r.t. x for all costs: " << hessian_x_all << std::endl;
     std::cout << "Hessian w.r.t. u for all costs: " << hessian_u_all << std::endl;
-
 
     return 0;
 }
