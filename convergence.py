@@ -31,9 +31,9 @@ if scenerio == "intersection":
     x_ref_6 = np.array([0, -1, 0, 0])
 
 if scenerio == "overtaking":
-    x0_1 = [-3.0, -2.0, 0.0, 1.1]
-    x0_2 = [-3.0, 2.0, 0.0, 1]
-    x0_3 = [-3.0, 0.0, 0, 0.8]
+    x0_1 = [-3.0, -2.0, 0.0, 1.0]
+    x0_2 = [-3.0, 2.0, 0.0, 1.0]
+    x0_3 = [-3.0, 0.0, 0, 1.0]
     x0_4 = [-2.0, 3.0, 0.0, 0.0]
     x0_5 = [0.0, 1.0, 0.0, 0.0]
     x0_6 = [1.0, 0.0, 0.0, 0.0]
@@ -246,7 +246,7 @@ except KeyboardInterrupt:
             total_wall_costs[ii] = sum(total_wall_costs[ii])
             total_input_costs[ii] = sum(total_input_costs[ii])
 
-    
+
 # plot costs
 plt.figure()
 plt.plot(total_costs)

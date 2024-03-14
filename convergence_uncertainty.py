@@ -4,14 +4,14 @@ import time
 from scipy.linalg import block_diag
 
 from solve_lq_problem import solve_lq_game
-from Diff_robot_uncertainty import UnicycleRobot
+from Diff_robot_uncertainty import UnicycleRobotUncertain
 from Costs import ProximityCost, OverallCost, ReferenceCost
 from MultiAgentDynamics import MultiAgentDynamics
 
 
 
-dt = 0.2
-HORIZON = 4.0
+dt = 4/16
+HORIZON = 4
 TIMESTEPS = int(HORIZON / dt)
 scenerio = "overtaking"
 
@@ -40,19 +40,19 @@ if scenerio == "overtaking":
     x0_6 = [1.0, 0.0, 0.0, 0.0]
 
 
-    x_ref_1 = np.array([3, 2, 0, 0])
-    x_ref_2 = np.array([3, -2, 0, 0])
-    x_ref_3 = np.array([3, 0, 0, 0])
+    x_ref_1 = np.array([2, 2, 0, 0])
+    x_ref_2 = np.array([2, -2, 0, 0])
+    x_ref_3 = np.array([2, 0, 0, 0])
     x_ref_4 = np.array([2, 0, 0, 0])
     x_ref_5 = np.array([-2, 0, 0, 0])
     x_ref_6 = np.array([0, -1, 0, 0])
 
-robot1 = UnicycleRobot(x0_1, x_ref_1, dt)
-robot2 = UnicycleRobot(x0_2, x_ref_2, dt)
-robot3 = UnicycleRobot(x0_3, x_ref_3, dt)
-robot4 = UnicycleRobot(x0_4, x_ref_4, dt)
-robot5 = UnicycleRobot(x0_5, x_ref_5, dt)
-robot6 = UnicycleRobot(x0_6, x_ref_6, dt)
+robot1 = UnicycleRobotUncertain(x0_1, x_ref_1, dt)
+robot2 = UnicycleRobotUncertain(x0_2, x_ref_2, dt)
+robot3 = UnicycleRobotUncertain(x0_3, x_ref_3, dt)
+robot4 = UnicycleRobotUncertain(x0_4, x_ref_4, dt)
+robot5 = UnicycleRobotUncertain(x0_5, x_ref_5, dt)
+robot6 = UnicycleRobotUncertain(x0_6, x_ref_6, dt)
 
 
 # mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3, robot4, robot5, robot6], dt, HORIZON)
@@ -98,7 +98,7 @@ prev_control_inputs = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2
 control_inputs = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2))
 total_costs = []
 
-mu = np.array([[2.0, 2.0], [2.0, 2.0], [2.0, 2.0]])
+mu = np.array([[2.5, 2.5], [2.5, 2.5], [2.5, 2.5]])
 phi = 1.2
 
 Gs = np.empty((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, mp_dynamics.num_agents-1, 12), dtype=object)
@@ -131,14 +131,11 @@ for i in range(len(mp_dynamics.agent_list)):
 for i in range(mp_dynamics.num_agents):
     for t in range(mp_dynamics.TIMESTEPS):
         u1[i][t] = 0.5*np.sin(t*mp_dynamics.dt) 
-        u1[i][t] = 0.0
+        # u1[i][t] = 0.0
         u2[i][t] = 0.0
 
-# u1 = [[0.0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
-# u2 = [[4]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
-xs = [[0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
 
-xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt)
+xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt, True)
 As, Bs = mp_dynamics.get_linearized_dynamics_for_initial_state(xs,u1,u2)
 
 '''for ii in range(mp_dynamics.TIMESTEPS):
@@ -169,20 +166,22 @@ total_input_costs = []
 
 try:
     while(max_error > TOL_CC_ERROR):
-        errors = []
+        # define errors list as agent * agent-1 as list
+        errors = [[[] for _ in range(mp_dynamics.num_agents-1)] for _ in range(mp_dynamics.num_agents)]
         if Gs[0][0][0] is not None:
             for i, robot in enumerate(mp_dynamics.agent_list):
                 for j in range(mp_dynamics.TIMESTEPS):
                     for k in range(mp_dynamics.num_agents-1):
                         concatenated_states = np.concatenate([state[j] for state in xs])
                         error = (Gs[i][j][k]@concatenated_states + qs[i][j][k] + rhos[i][j][k])
-                        errors.append(error)
-            max_error = np.float32(max(errors))
+                        errors[i][k].append(error)
+            max_errors = np.float32(np.max(np.array(errors), 2))
+            max_error = np.max(max_errors)
         print(max_error)
         for i in range(mp_dynamics.num_agents):
             for j in range(mp_dynamics.num_agents-1):
-                lambdas[i][j] = max(0,lambdas[i][j] + mu[i][j] * np.abs((0.50 - max_error)))
-                Is[i][j] = 0 if (0.5 - max_error < 0.0)&(lambdas[i][j] == 0) else mu[i][j]
+                lambdas[i][j] = max(0,lambdas[i][j] + mu[i][j] * np.abs((0.90 - max_errors[i][j])))
+                Is[i][j] = 0 if (0.9 - max_error < 0.0)&(lambdas[i][j] == 0) else mu[i][j]
 
         for i in range(mp_dynamics.num_agents):
             for j in range(mp_dynamics.num_agents-1):
@@ -190,21 +189,23 @@ try:
 
         while (flag == 0):
             start = time.time()
-            errors = []
+            errors = [[[] for _ in range(mp_dynamics.num_agents-1)] for _ in range(mp_dynamics.num_agents)]
             if Gs[0][0][0] is not None:
                 for i, robot in enumerate(mp_dynamics.agent_list):
                     for j in range(mp_dynamics.TIMESTEPS):
                         for k in range(mp_dynamics.num_agents-1):
                             concatenated_states = np.concatenate([state[j] for state in xs])
                             error = (Gs[i][j][k]@concatenated_states + qs[i][j][k] + rhos[i][j][k])
-                            errors.append(error)
-                max_error = np.float32(max(errors))
+                            errors[i][k].append(error)
+                max_errors = np.float32(np.max(np.array(errors), 2))
+                max_error = np.max(max_errors)
             print('Max Error:', max_error)
             last_points = current_points
             
             # integrate the dynamics
             if total_time_steps != 0:
-                xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt)
+                xs_real = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt, True)
+                xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt, False)
 
             current_points = xs
 
@@ -296,9 +297,9 @@ try:
 except KeyboardInterrupt:
     for ii in range(mp_dynamics.TIMESTEPS):
         for i, agent in enumerate(mp_dynamics.agent_list):
-            x_traj[i].append(xs[i][ii][0])
-            y_traj[i].append(xs[i][ii][1])
-            headings[i].append(xs[i][ii][2])
+            x_traj[i].append(xs_real[i][ii][0])
+            y_traj[i].append(xs_real[i][ii][1])
+            headings[i].append(xs_real[i][ii][2])
     for ii in range(len(total_costs)):
         if type(total_costs[ii]) is list: 
             total_costs[ii] = sum(total_costs[ii])

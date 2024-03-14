@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
 
-class UnicycleRobot:
+class UnicycleRobotUncertain:
 
     def __init__(self, x0, xref, dt=0.1):
         self.x0 = x0
@@ -31,9 +31,12 @@ class UnicycleRobot:
 
         return torch.stack([x_dot, y_dot, theta_dot, v_dot])
 
-    def dynamics_for_given_state(self, state, u1, u2):
+    def dynamics_for_given_state(self, state, u1, u2, uncertainty=False):
+        if uncertainty == True:
+            A_uncertainty = np.random.normal(0, self.uncertainty_params['A_uncertainty'])
+        else:
+            A_uncertainty = 0
 
-        A_uncertainty = np.random.normal(0, self.uncertainty_params['A_uncertainty'])
         B_uncertainty = 0
         x, y, theta, v  = state
 
@@ -49,29 +52,29 @@ class UnicycleRobot:
         updated_state = self.state + self.dt * x_dot.detach().clone()
         return updated_state.data  
 
-    def integrate_dynamics_for_given_state(self, state, u1, u2, dt):
-        x_dot = self.dynamics_for_given_state(state, u1, u2)
+    def integrate_dynamics_for_given_state(self, state, u1, u2, dt, uncertainty=False):
+        x_dot = self.dynamics_for_given_state(state, u1, u2, uncertainty)
         updated_state = [self.dt*i for i in x_dot] 
         updated_state= [i + j for i, j in zip(state, updated_state)]
         return updated_state
 
-    def runge_kutta_4_integration(self,state, u1, u2, dt):
+    def runge_kutta_4_integration(self,state, u1, u2, dt, uncertainty):
         # Runge-Kutta 4 integration method
 
-        k1 = np.array(self.dynamics_for_given_state(state, u1, u2))
-        k2 = np.array(self.dynamics_for_given_state(state + 0.5 * dt * k1, u1, u2))
-        k3 = np.array(self.dynamics_for_given_state(state + 0.5 * dt * k2, u1, u2))
-        k4 = np.array(self.dynamics_for_given_state(state + dt * k3, u1, u2))
+        k1 = np.array(self.dynamics_for_given_state(state, u1, u2, uncertainty ))
+        k2 = np.array(self.dynamics_for_given_state(state + 0.5 * dt * k1, u1, u2, uncertainty))
+        k3 = np.array(self.dynamics_for_given_state(state + 0.5 * dt * k2, u1, u2, uncertainty))
+        k4 = np.array(self.dynamics_for_given_state(state + dt * k3, u1, u2, uncertainty))
 
         updated_state = [dt / 6.0 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]) + state[i] for i in range(4)]
         return updated_state
 
-    def integrate_dynamics_for_initial_state(self, state, u1s, u2s, dt, TIMESTEP):
+    def integrate_dynamics_for_initial_state(self, state, u1s, u2s, dt, TIMESTEP, uncertainty=False):
         states = []
         for i in range(TIMESTEP):
-            #state = self.integrate_dynamics_for_given_state(state, u1s[i], u2s[i], dt)
-            #state = self.runge_kutta_4_integration(state, u1s[i], u2s[i], dt)
-            state = self.runge_kutta_4_integration(state, u1s[i], u2s[i], dt)
+            #state = self.integrate_dynamics_for_given_state(state, u1s[i], u2s[i], dt, uncertainty)
+            #state = self.runge_kutta_4_integration(state, u1s[i], u2s[i], dt, uncertainty)
+            state = self.runge_kutta_4_integration(state, u1s[i], u2s[i], dt, uncertainty)
             states.append(state)
         return states
 

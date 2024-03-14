@@ -6,6 +6,8 @@ from Costs import ProximityCost, OverallCost, ReferenceCost, WallCost, InputCost
 
 import numpy as np
 from scipy.special import erfinv
+from Diff_robot import UnicycleRobot
+from Diff_robot_uncertainty import UnicycleRobotUncertain
 
 class MultiAgentDynamics():
     def __init__(self, agent_list, dt, HORIZON=3.0):
@@ -16,7 +18,7 @@ class MultiAgentDynamics():
         self.xref_mp = np.concatenate([agent.xref for agent in agent_list])
         self.TIMESTEPS = int(HORIZON/dt)
         self.us = self.get_control_vector()
-        self.prob = 0.50
+        self.prob = 0.90
 
     def get_linearized_dynamics(self, u_list):
         A_traj_mp = []
@@ -62,8 +64,8 @@ class MultiAgentDynamics():
         overall_cost_list = [[] for _ in range(len(self.agent_list))]
 
         for i, agent in enumerate(self.agent_list):
-            ref_cost_list[i].append(ReferenceCost(i, self.xref_mp, 1.0))
-            input_cost_list[i].append(InputCost(i, 2.0))
+            ref_cost_list[i].append(ReferenceCost(i, self.xref_mp, [4,4,1,2]))
+            input_cost_list[i].append(InputCost(i, 20.0, 100.0))
 
         if uncertainty == False:
             for i in range(len(self.agent_list)):
@@ -144,10 +146,13 @@ class MultiAgentDynamics():
             agent.integrate_dynamics(self.us[i][0][0], self.us[i][0][1], self.dt)
         return None
 
-    def integrate_dynamics_for_initial_mp(self, u1, u2, dt):
+    def integrate_dynamics_for_initial_mp(self, u1, u2, dt, uncertainty = False):
         xs = [[agent.x0] for agent in self.agent_list]
         for i, agent in enumerate(self.agent_list):
-            xs[i] = xs[i] + (agent.integrate_dynamics_for_initial_state(agent.x0, u1[i], u2[i], dt, self.TIMESTEPS))
+            if isinstance(agent, UnicycleRobot):
+                xs[i] = xs[i] + (agent.integrate_dynamics_for_initial_state(agent.x0, u1[i], u2[i], dt, self.TIMESTEPS))
+            else:
+                xs[i] = xs[i] + (agent.integrate_dynamics_for_initial_state(agent.x0, u1[i], u2[i], dt, self.TIMESTEPS, uncertainty))
         return xs
 
     def reshape_control_inputs(self):

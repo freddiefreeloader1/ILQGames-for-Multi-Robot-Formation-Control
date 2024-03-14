@@ -61,29 +61,30 @@ class ProximityCostUncertainQuad:
         return [0.0 for _ in range(len(u))]
 
 class ReferenceCost:
-    def __init__(self, idx = 0, x_ref = np.array([0, 0, 0, 0, 0, 0, 0, 0]), weight = 1.0):
+    def __init__(self, idx = 0, x_ref = np.array([0, 0, 0, 0, 0, 0, 0, 0]), weight = [1, 1, 1, 1]):
         self.idx = idx
         self.x_ref = x_ref
         self.weight = weight
 
     def evaluate(self, x, u):
-        dist = np.sqrt(4*(x[4*self.idx] - self.x_ref[4*self.idx])**2 + 
-        4*(x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])**2 + 
-        (x[4*self.idx + 2] - self.x_ref[4*self.idx + 2])**2 + 
-        (x[4*self.idx + 3] - self.x_ref[4*self.idx + 3])**2)**2
-        return dist * self.weight
+        dist = np.sqrt(
+        self.weight[0]*(x[4*self.idx] - self.x_ref[4*self.idx])**2 + 
+        self.weight[1]*(x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])**2 + 
+        self.weight[2]*(x[4*self.idx + 2] - self.x_ref[4*self.idx + 2])**2 + 
+        self.weight[3]*(x[4*self.idx + 3] - self.x_ref[4*self.idx + 3])**2)**2
+        return dist
     
     def gradient_x(self, x, u):
-        denom = self.weight/(2*np.sqrt((x[4*self.idx] - self.x_ref[4*self.idx])**2 + 
+        '''denom = self.weight/(2*np.sqrt((x[4*self.idx] - self.x_ref[4*self.idx])**2 + 
         (x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])**2 + 
         (x[4*self.idx + 2] - self.x_ref[4*self.idx + 2])**2 + 
-        (x[4*self.idx + 3] - self.x_ref[4*self.idx + 3])**2))
-        denom = self.weight
+        (x[4*self.idx + 3] - self.x_ref[4*self.idx + 3])**2))'''
+
         grad_x = [0.0 for _ in range(len(x))] 
-        grad_x[4*self.idx] = 8*(x[4*self.idx] - self.x_ref[4*self.idx])*denom
-        grad_x[4*self.idx + 1] = 8*(x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])*denom
-        grad_x[4*self.idx + 2] = 2*(x[4*self.idx + 2] - self.x_ref[4*self.idx + 2])*denom
-        grad_x[4*self.idx + 3] = 2*(x[4*self.idx + 3] - self.x_ref[4*self.idx + 3])*denom
+        grad_x[4*self.idx] = 2*self.weight[0]*(x[4*self.idx] - self.x_ref[4*self.idx])
+        grad_x[4*self.idx + 1] = 2*self.weight[1]*(x[4*self.idx + 1] - self.x_ref[4*self.idx + 1])
+        grad_x[4*self.idx + 2] = 2*self.weight[2]*(x[4*self.idx + 2] - self.x_ref[4*self.idx + 2])
+        grad_x[4*self.idx + 3] = 2*self.weight[3]*(x[4*self.idx + 3] - self.x_ref[4*self.idx + 3])
         return grad_x
 
     def gradient_u(self, x, u):
@@ -91,19 +92,20 @@ class ReferenceCost:
 
 
 class InputCost:
-    def __init__(self, idx, weight=1.0):
-        self.weight = weight
+    def __init__(self, idx, weight1=1.0, weight2=1.0):
+        self.weight1 = weight1
+        self.weight2 = weight2
         self.idx = idx
     def evaluate(self, x, u):
-        return self.weight * (10*u[0]**2 + 150*u[1]**2)
+        return self.weight1*u[0]**2 + self.weight2*u[1]**2
 
     def gradient_x(self, x, u):
         return [0.0 for _ in range(len(x))]
     
     def gradient_u(self, x, u):
         grad_u = [0.0 for _ in range(len(u))]
-        grad_u[0] = 20*self.weight*u[0]
-        grad_u[1] = 300*self.weight*u[1]
+        grad_u[0] = 2*self.weight1*u[0]
+        grad_u[1] = 2*self.weight2*u[1]
         return grad_u
 
 
