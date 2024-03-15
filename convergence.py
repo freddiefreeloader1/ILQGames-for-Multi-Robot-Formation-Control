@@ -12,7 +12,7 @@ from MultiAgentDynamics import MultiAgentDynamics
 dt = 0.2
 HORIZON = 10.0
 TIMESTEPS = int(HORIZON / dt)
-scenerio = "intersection"
+scenerio = "overtaking"
 
 if scenerio == "intersection":
     x0_1 = [-2.0, -2.0, 0.0, 1.0]
@@ -31,16 +31,16 @@ if scenerio == "intersection":
     x_ref_6 = np.array([0, -1, 0, 0])
 
 if scenerio == "overtaking":
-    x0_1 = [-3.0, -2.0, 0.0, 1.0]
-    x0_2 = [-3.0, 2.0, 0.0, 1.0]
+    x0_1 = [-3.0, -2.0, np.pi/4, 1.2]
+    x0_2 = [-3.1, 2.0, -np.pi/3, 1.1]
     x0_3 = [-3.0, 0.0, 0, 1.0]
     x0_4 = [-2.0, 3.0, 0.0, 0.0]
     x0_5 = [0.0, 1.0, 0.0, 0.0]
     x0_6 = [1.0, 0.0, 0.0, 0.0]
 
 
-    x_ref_1 = np.array([3, 2, 0, 0])
-    x_ref_2 = np.array([3, -2, 0, 0])
+    x_ref_1 = np.array([2, 3, 0, 0])
+    x_ref_2 = np.array([2, -3, 0, 0])
     x_ref_3 = np.array([3, 0, 0, 0])
     x_ref_4 = np.array([2, 0, 0, 0])
     x_ref_5 = np.array([-2, 0, 0, 0])
@@ -93,9 +93,10 @@ for i in range(mp_dynamics.num_agents):
 
 # u1 = [[0.0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
 # u2 = [[4]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
-xs = [[0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
+xs = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 4))
 
 xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt)
+
 
 
 # plot the xs first 
@@ -155,17 +156,42 @@ try:
         start = time.time()
 
         
-        
         # integrate the dynamics
         
         # xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt)
         
-       
-        xs, control_inputs = mp_dynamics.compute_op_point(Ps, alphas, current_points, prev_control_inputs)
+        
+        xs, control_inputs = mp_dynamics.compute_op_point(Ps, alphas, current_points, prev_control_inputs, zeta = 0.015)
+
+        # visualize the xs
+        plt.ion()
+        fig, ax = plt.subplots()
+        ax.set_xlim(-4, 4)
+        ax.set_ylim(-4, 4)
+        ax.grid(True)
+        colors = ['ro', 'go', 'bo', 'co', 'mo', 'yo']
+        for kk in range(mp_dynamics.TIMESTEPS):
+            ax.clear()
+            ax.grid(True)
+            ax.set_xlim(-4, 4)
+            ax.set_ylim(-4, 4)
+
+            for i in range(mp_dynamics.num_agents):
+                ax.plot(xs[i][kk][0], xs[i][kk][1], colors[i], label=f'Robot {i}', markersize=25)
+                ax.arrow(xs[i][kk][0], xs[i][kk][1], 0.3 * np.cos(xs[i][kk][2]), 0.3 * np.sin(xs[i][kk][2]), head_width=0.1)
+
+            plt.pause(0.01)
+            time.sleep(0.01)
+            plt.show()
+
+        plt.ioff()
+
+        # close the plot
+        plt.close()
 
         last_points = current_points
         current_points = xs
-
+        
         # get the linearized dynamics
         _, _, As, Bs = mp_dynamics.get_linearized_dynamics_for_initial_state(xs,u1,u2)
 

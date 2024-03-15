@@ -125,7 +125,7 @@ prox_cost_list = [[] for _ in range(len(mp_dynamics.agent_list))]
 for i in range(len(mp_dynamics.agent_list)):
     for j in range(len(mp_dynamics.agent_list)):
         if i != j:
-            prox_cost_list[i].append(ProximityCost(1.3, i, j, 5.0))
+            prox_cost_list[i].append(ProximityCost(1.0, i, j, 5.0))
 
 
 for i in range(mp_dynamics.num_agents):

@@ -72,19 +72,19 @@ class MultiAgentDynamics():
         overall_cost_list = [[] for _ in range(len(self.agent_list))]
 
         for i, agent in enumerate(self.agent_list):
-            ref_cost_list[i].append(ReferenceCost(i, self.xref_mp, [7,7,1,4]))
-            input_cost_list[i].append(InputCost(i, 50.0, 100.0))
+            ref_cost_list[i].append(ReferenceCost(i, self.xref_mp, [10,10,1,4]))
+            input_cost_list[i].append(InputCost(i, 100.0, 200.0))
 
         if uncertainty == False:
             for i in range(len(self.agent_list)):
                 for j in range(len(self.agent_list)):
                     if i != j:
-                        prox_cost_list[i].append(ProximityCost(1.0, i, j, 200.0))
+                        prox_cost_list[i].append(ProximityCost(1.0, i, j, 100.0))
         else:
             for i in range(len(self.agent_list)):
                 for j in range(len(self.agent_list)-1):
-                    prox_cost_list[i].append(ProximityCostUncertainLinear(2.0))
-                    prox_cost_list[i].append(ProximityCostUncertainQuad(0.0))
+                    prox_cost_list[i].append(ProximityCostUncertainLinear(1.0))
+                    prox_cost_list[i].append(ProximityCostUncertainQuad(1.0))
                        
         for i in range(len(self.agent_list)):
             wall_cost_list[i].append(WallCost(i, 0.04))
@@ -219,10 +219,7 @@ class MultiAgentDynamics():
         xs = np.zeros((self.num_agents, self.TIMESTEPS, 4))
         # make the first state of the robots the same as the current state
         for i, agent in enumerate(self.agent_list):
-            if current_x is not None:
-                xs[i][0] = current_x[i][0]
-            else:
-                xs[i][0] = agent.x0
+            xs[i][0] = agent.x0
             
         if current_x is not None:
             for i, agent in enumerate(self.agent_list):
