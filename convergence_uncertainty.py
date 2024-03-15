@@ -10,7 +10,7 @@ from MultiAgentDynamics import MultiAgentDynamics
 
 
 
-dt = 4/16
+dt = 0.2
 HORIZON = 4
 TIMESTEPS = int(HORIZON / dt)
 scenerio = "overtaking"
@@ -125,21 +125,24 @@ prox_cost_list = [[] for _ in range(len(mp_dynamics.agent_list))]
 for i in range(len(mp_dynamics.agent_list)):
     for j in range(len(mp_dynamics.agent_list)):
         if i != j:
-            prox_cost_list[i].append(ProximityCost(1.0, i, j, 3.0))
+            prox_cost_list[i].append(ProximityCost(1.3, i, j, 5.0))
 
 
 for i in range(mp_dynamics.num_agents):
     for t in range(mp_dynamics.TIMESTEPS):
         u1[i][t] = 0.5*np.sin(t*mp_dynamics.dt) 
-        # u1[i][t] = 0.0
+        u1[i][t] = 0.0
         u2[i][t] = 0.0
 
 
 xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt, True)
-As, Bs = mp_dynamics.get_linearized_dynamics_for_initial_state(xs,u1,u2)
+current_points = xs
+last_points = xs
 
-'''for ii in range(mp_dynamics.TIMESTEPS):
-                sigmas[ii] = As[ii] @ sigmas[ii] @ As[ii].T''' 
+Acs, Bcs, As, Bs = mp_dynamics.get_linearized_dynamics_for_initial_state(xs,u1,u2)
+
+for ii in range(mp_dynamics.TIMESTEPS):
+                sigmas[ii] = Acs[ii] @ sigmas[ii] @ Acs[ii].T
 
 Gs, qs, rhos = mp_dynamics.get_Gs(xs, prox_cost_list, sigmas)
 
@@ -150,6 +153,13 @@ for i in range(mp_dynamics.num_agents):
 lambdas = np.zeros((mp_dynamics.num_agents, mp_dynamics.num_agents-1))
 Is = np.zeros((mp_dynamics.num_agents, mp_dynamics.num_agents-1))
 Is = mu
+
+# initialize the Ps with shape 3,50,2,12
+
+Ps = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2, mp_dynamics.num_agents*4))
+
+# initialize the alphas with shape 3,50,2
+alphas = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2))
 
 '''for i in range(mp_dynamics.num_agents):
     Qs.append([costs[i][0].hessian_x(mp_dynamics.x0_mp, [0]*mp_dynamics.num_agents*4)]*mp_dynamics.TIMESTEPS)
@@ -180,14 +190,15 @@ try:
         print(max_error)
         for i in range(mp_dynamics.num_agents):
             for j in range(mp_dynamics.num_agents-1):
-                lambdas[i][j] = max(0,lambdas[i][j] + mu[i][j] * np.abs((0.90 - max_errors[i][j])))
-                Is[i][j] = 0 if (0.9 - max_error < 0.0)&(lambdas[i][j] == 0) else mu[i][j]
+                lambdas[i][j] = max(0,lambdas[i][j] + mu[i][j] * np.abs((0.70 - max_errors[i][j])))
+                Is[i][j] = 0 if (0.7 - max_error < 0.0)&(lambdas[i][j] == 0) else mu[i][j]
 
         for i in range(mp_dynamics.num_agents):
             for j in range(mp_dynamics.num_agents-1):
                 mu[i][j] *= phi
-
+        flag = 0
         while (flag == 0):
+
             start = time.time()
             errors = [[[] for _ in range(mp_dynamics.num_agents-1)] for _ in range(mp_dynamics.num_agents)]
             if Gs[0][0][0] is not None:
@@ -200,20 +211,28 @@ try:
                 max_errors = np.float32(np.max(np.array(errors), 2))
                 max_error = np.max(max_errors)
             print('Max Error:', max_error)
-            last_points = current_points
+
+
+           
             
             # integrate the dynamics
-            if total_time_steps != 0:
-                xs_real = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt, True)
-                xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt, False)
+            
 
+            xs, control_inputs = mp_dynamics.compute_op_point(Ps, alphas, current_points, prev_control_inputs, 0.02 , True)
+
+            u1 = control_inputs[:,:,0]
+            u2 = control_inputs[:,:,1]
+
+            xs_real = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt, True)
+
+            last_points = current_points
             current_points = xs
 
             # get the linearized dynamics
-            As, Bs = mp_dynamics.get_linearized_dynamics_for_initial_state(xs,u1,u2)
+            Acs, Bcs, As, Bs = mp_dynamics.get_linearized_dynamics_for_initial_state(xs,u1,u2)
 
-            '''for ii in range(mp_dynamics.TIMESTEPS):
-                sigmas[ii] = As[ii] @ sigmas[ii] @ As[ii].T '''
+            for ii in range(mp_dynamics.TIMESTEPS):
+                sigmas[ii] = Acs[ii] @ sigmas[ii] @ Acs[ii].T 
 
             # get the linearized constraint matrices
             Gs, qs, rhos = mp_dynamics.get_Gs(xs, prox_cost_list, sigmas)
@@ -233,17 +252,17 @@ try:
                 concatenated_states = np.concatenate([state[ii] for state in xs])
                 for i, robot in enumerate(mp_dynamics.agent_list):
                     for k in range(len(mp_dynamics.agent_list)-1):
-                        Qs[i].append(costs[i][0].hessian_x(concatenated_states, prev_control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k], Is[i][k]))
-                        ls[i].append(costs[i][0].gradient_x(concatenated_states, prev_control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k], Is[i][k]))
-                        Rs[i][i].append(costs[i][0].hessian_u(concatenated_states, prev_control_inputs[i][ii]))
-                        total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, prev_control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k], Is[i][k]))
+                        Qs[i].append(costs[i][0].hessian_x(concatenated_states, control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k], Is[i][k]))
+                        ls[i].append(costs[i][0].gradient_x(concatenated_states, control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k], Is[i][k]))
+                        Rs[i][i].append(costs[i][0].hessian_u(concatenated_states, control_inputs[i][ii]))
+                        total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k], Is[i][k]))
                         total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[1].evaluate(concatenated_states, Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k]))
                         total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[3].evaluate(concatenated_states, Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k]))
                         total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[2].evaluate(concatenated_states, Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], Is[i][k]))
                         total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[4].evaluate(concatenated_states, Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], Is[i][k]))
-                        total_ref_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[0].evaluate(concatenated_states, prev_control_inputs[i][ii]))
-                        total_input_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[6].evaluate(concatenated_states, prev_control_inputs[i][ii]))
-                        total_wall_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[5].evaluate(concatenated_states, prev_control_inputs[i][ii]))
+                        total_ref_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[0].evaluate(concatenated_states, control_inputs[i][ii]))
+                        total_input_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[6].evaluate(concatenated_states, control_inputs[i][ii]))
+                        total_wall_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[5].evaluate(concatenated_states, control_inputs[i][ii]))
 
             # sum the costs 
             for i in range(mp_dynamics.num_agents):
@@ -260,25 +279,19 @@ try:
 
             Ps, alphas = solve_lq_game(As, Bs, Qs, ls, Rs)
 
-            u1_array = np.array(u1)
-            u2_array = np.array(u2)
-
-            # Reshape u1 and u2
-            u1_reshaped = np.reshape(u1_array, (u1_array.shape[0], u1_array.shape[1], 1))
-            u2_reshaped = np.reshape(u2_array, (u2_array.shape[0], u2_array.shape[1], 1))
 
             # Combine u1_reshaped and u2_reshaped along the last axis to get (num_agents, timesteps, 2)
-            control_inputs = np.concatenate((u1_reshaped, u2_reshaped), axis=-1)
+            #control_inputs = np.concatenate((u1_reshaped, u2_reshaped), axis=-1)
 
-            control_inputs = mp_dynamics.compute_control_vector_current(Ps, alphas, xs, current_points, prev_control_inputs)
+            # control_inputs = mp_dynamics.compute_control_vector_current(Ps, alphas, xs, current_points, prev_control_inputs)
 
             prev_control_inputs = control_inputs
 
             # get u1 and u2 from control_inputs
-            u1 = control_inputs[:,:,0]
-            u2 = control_inputs[:,:,1]
             
-            flag = mp_dynamics.check_convergence(current_points, last_points)
+            
+            '''if total_time_steps > 0:
+                flag = mp_dynamics.check_convergence(current_points, last_points)'''
 
             if flag == 1:
                 for ii in range(mp_dynamics.TIMESTEPS):

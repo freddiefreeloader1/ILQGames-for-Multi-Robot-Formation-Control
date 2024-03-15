@@ -38,12 +38,13 @@ class UnicycleRobotUncertain:
             A_uncertainty = 0
 
         B_uncertainty = 0
+        
         x, y, theta, v  = state
 
         x_dot = v * np.cos(theta) + A_uncertainty
         y_dot = v * np.sin(theta) + A_uncertainty
-        theta_dot = u1 + B_uncertainty
-        v_dot = u2 + B_uncertainty
+        theta_dot = u1 + A_uncertainty
+        v_dot = u2 + A_uncertainty
 
         return [x_dot, y_dot, theta_dot, v_dot]
 

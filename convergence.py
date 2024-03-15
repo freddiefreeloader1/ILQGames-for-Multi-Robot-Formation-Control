@@ -12,7 +12,7 @@ from MultiAgentDynamics import MultiAgentDynamics
 dt = 0.2
 HORIZON = 10.0
 TIMESTEPS = int(HORIZON / dt)
-scenerio = "overtaking"
+scenerio = "intersection"
 
 if scenerio == "intersection":
     x0_1 = [-2.0, -2.0, 0.0, 1.0]
@@ -140,21 +140,34 @@ total_prox_costs = []
 total_wall_costs = []
 total_input_costs = []
 
+last_points = xs
+current_points = xs
+# initialize the Ps with shape 3,50,2,12
+
+Ps = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2, mp_dynamics.num_agents*4))
+
+# initialize the alphas with shape 3,50,2
+alphas = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2))
+
 
 try:
     while (flag == 0):
         start = time.time()
 
-        last_points = current_points
+        
         
         # integrate the dynamics
-        if total_time_steps != 0:
-            xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt)
+        
+        # xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt)
+        
+       
+        xs, control_inputs = mp_dynamics.compute_op_point(Ps, alphas, current_points, prev_control_inputs)
 
+        last_points = current_points
         current_points = xs
 
         # get the linearized dynamics
-        As, Bs = mp_dynamics.get_linearized_dynamics_for_initial_state(xs,u1,u2)
+        _, _, As, Bs = mp_dynamics.get_linearized_dynamics_for_initial_state(xs,u1,u2)
 
         Qs = [[] for _ in range(mp_dynamics.num_agents)]
         ls = [[] for _ in range(mp_dynamics.num_agents)]
@@ -171,15 +184,15 @@ try:
         for ii in range(mp_dynamics.TIMESTEPS):
             concatenated_states = np.concatenate([state[ii] for state in xs])
             for i, robot in enumerate(mp_dynamics.agent_list):
-                Qs[i].append(costs[i][0].hessian_x(concatenated_states, prev_control_inputs[i][ii]))
-                ls[i].append(costs[i][0].gradient_x(concatenated_states, prev_control_inputs[i][ii]))
-                Rs[i][i].append(costs[i][0].hessian_u(concatenated_states, prev_control_inputs[i][ii]))
-                total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, prev_control_inputs[i][ii]))
-                total_ref_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[0].evaluate(concatenated_states, prev_control_inputs[i][ii]))
-                total_input_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[4].evaluate(concatenated_states, prev_control_inputs[i][ii]))
-                total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[1].evaluate(concatenated_states, prev_control_inputs[i][ii]))
-                total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[2].evaluate(concatenated_states, prev_control_inputs[i][ii]))
-                total_wall_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[3].evaluate(concatenated_states, prev_control_inputs[i][ii]))
+                Qs[i].append(costs[i][0].hessian_x(concatenated_states, control_inputs[i][ii]))
+                ls[i].append(costs[i][0].gradient_x(concatenated_states, control_inputs[i][ii]))
+                Rs[i][i].append(costs[i][0].hessian_u(concatenated_states, control_inputs[i][ii]))
+                total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, control_inputs[i][ii]))
+                total_ref_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[0].evaluate(concatenated_states, control_inputs[i][ii]))
+                total_input_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[4].evaluate(concatenated_states, control_inputs[i][ii]))
+                total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[1].evaluate(concatenated_states, control_inputs[i][ii]))
+                total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[2].evaluate(concatenated_states, control_inputs[i][ii]))
+                total_wall_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[3].evaluate(concatenated_states, control_inputs[i][ii]))
 
         '''cost_end = time.time()
         print(f"Time taken for cost computation: {cost_end - cost_start}")'''
@@ -196,7 +209,6 @@ try:
         total_wall_costs[total_time_steps] = sum(total_wall_costs[total_time_steps])
         total_input_costs[total_time_steps] = sum(total_input_costs[total_time_steps])
 
-
         Ps, alphas = solve_lq_game(As, Bs, Qs, ls, Rs)
 
         u1_array = np.array(u1)
@@ -207,9 +219,10 @@ try:
         u2_reshaped = np.reshape(u2_array, (u2_array.shape[0], u2_array.shape[1], 1))
 
         # Combine u1_reshaped and u2_reshaped along the last axis to get (num_agents, timesteps, 2)
-        control_inputs = np.concatenate((u1_reshaped, u2_reshaped), axis=-1)
 
-        control_inputs = mp_dynamics.compute_control_vector_current(Ps, alphas, xs, current_points, prev_control_inputs)
+        # control_inputs = np.concatenate((u1_reshaped, u2_reshaped), axis=-1)
+
+        # control_inputs = mp_dynamics.compute_control_vector_current(Ps, alphas, xs, current_points, prev_control_inputs)
 
         prev_control_inputs = control_inputs
 
@@ -217,7 +230,8 @@ try:
         u1 = control_inputs[:,:,0]
         u2 = control_inputs[:,:,1]
         
-        flag = mp_dynamics.check_convergence(current_points, last_points)
+        if total_time_steps != 0:
+            flag = mp_dynamics.check_convergence(current_points, last_points)
 
         if flag == 1:
             for ii in range(mp_dynamics.TIMESTEPS):
