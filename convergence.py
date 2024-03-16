@@ -14,7 +14,7 @@ HORIZON = 10.0
 TIMESTEPS = int(HORIZON / dt)
 scenerio = "overtaking"
 
-if scenerio == "intersection":
+if scenerio == "intersection":   # introduce ref cost after 20th timestep
     x0_1 = [-2.0, -2.0, 0.0, 1.0]
     x0_2 = [-2.0, 2.0, 0.0, 1.0]
     x0_3 = [0.0, 4.0, -np.pi/2, 3.0]
@@ -30,7 +30,7 @@ if scenerio == "intersection":
     x_ref_5 = np.array([-2, 0, 0, 0])
     x_ref_6 = np.array([0, -1, 0, 0])
 
-if scenerio == "overtaking":
+if scenerio == "overtaking":  # introduce ref cost after 35th timestep
     x0_1 = [-3.0, -2.0, 0, 1.2]
     x0_2 = [-3.1, 2.0, 0, 1.1]
     x0_3 = [-3.0, 0.0, 0, 1.0]
@@ -46,7 +46,21 @@ if scenerio == "overtaking":
     x_ref_5 = np.array([-2, 0, 0, 0])
     x_ref_6 = np.array([0, -1, 0, 0])
 
+if scenerio == "line":   # introduce ref cost after 20th timestep
+    x0_1 = [-1.0, -1.0, 0, 0]
+    x0_2 = [-3.1, 2.0, 0, 0]
+    x0_3 = [3.0, -1.0, 0, 0]
+    x0_4 = [-2.0, 3.0, 0.0, 0.0]
+    x0_5 = [0.0, 1.0, 0.0, 0.0]
+    x0_6 = [1.0, 0.0, 0.0, 0.0]
 
+
+    x_ref_1 = np.array([0, 3, 0, 0])
+    x_ref_2 = np.array([0, -3, 0, 0])
+    x_ref_3 = np.array([0, 0, 0, 0])
+    x_ref_4 = np.array([2, 0, 0, 0])
+    x_ref_5 = np.array([-2, 0, 0, 0])
+    x_ref_6 = np.array([0, -1, 0, 0])
 
 robot1 = UnicycleRobot(x0_1, x_ref_1, dt)
 robot2 = UnicycleRobot(x0_2, x_ref_2, dt)
