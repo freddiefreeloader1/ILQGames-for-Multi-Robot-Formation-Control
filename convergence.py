@@ -12,7 +12,7 @@ from MultiAgentDynamics import MultiAgentDynamics
 dt = 0.2
 HORIZON = 10.0
 TIMESTEPS = int(HORIZON / dt)
-scenerio = "overtaking"
+scenerio = "intersection"
 
 if scenerio == "intersection":   # introduce ref cost after 20th timestep
     x0_1 = [-2.0, -2.0, 0.0, 1.0]
@@ -48,7 +48,7 @@ if scenerio == "overtaking":  # introduce ref cost after 35th timestep
     x_ref_5 = np.array([-2, 0, 0, 0])
     x_ref_6 = np.array([0, -1, 0, 0])
 
-    ref_cost_threshold = 35
+    ref_cost_threshold = 15
 
 if scenerio == "line":   # introduce ref cost after 20th timestep
     x0_1 = [-1.0, -1.0, 0, 0]
@@ -77,6 +77,8 @@ robot6 = UnicycleRobot(x0_6, x_ref_6, dt)
 
 
 # mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3, robot4, robot5, robot6], dt, HORIZON)
+
+# for the line scenerio you could also include the robot4
 mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3], dt, HORIZON, ref_cost_threshold)
 
 costs = mp_dynamics.define_costs_lists()
@@ -163,6 +165,7 @@ total_input_costs = []
 
 last_points = xs
 current_points = xs
+
 # initialize the Ps with shape 3,50,2,12
 
 Ps = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2, mp_dynamics.num_agents*4))

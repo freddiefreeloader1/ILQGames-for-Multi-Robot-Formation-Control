@@ -172,11 +172,11 @@ class SpeedCost:
         self.idx = idx
 
     def evaluate(self, x, u):
-        return self.weight*((x[3])**2)
+        return self.weight*((x[4*self.idx+3])**2)
 
     def gradient_x(self, x, u):
         grad_x = [0.0 for _ in range(len(x))]
-        grad_x[3] = 2*self.weight*(x[3])
+        grad_x[4*self.idx+3] = 2*self.weight*(x[4*self.idx+3])
         return grad_x
     
     def gradient_u(self, x, u):

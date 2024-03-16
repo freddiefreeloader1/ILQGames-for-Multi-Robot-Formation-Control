@@ -74,9 +74,12 @@ class MultiAgentDynamics():
         speed_cost_list = [[] for _ in range(len(self.agent_list))]
 
         for i, agent in enumerate(self.agent_list):
-            ref_cost_list[i].append(ReferenceCost(i, self.xref_mp, [50,50,1,10]))
+            ref_cost_list[i].append(ReferenceCost(i, self.xref_mp, [40,40,1,10]))
             input_cost_list[i].append(InputCost(i, 600.0, 600.0))
-            speed_cost_list[i].append(SpeedCost(i, 200))
+            
+            if True:
+                speed_cost_list[i].append(SpeedCost(i, 60))
+                
 
         if uncertainty == False:
             for i in range(len(self.agent_list)):
@@ -175,7 +178,7 @@ class MultiAgentDynamics():
         for i in range(len(current_points)):
             for j in range(len(current_points[i])):
                 for k in range(len(current_points[i][j])):
-                    if np.abs(np.array(current_points[i][j][k]) - np.array(last_points[i][j][k])) > 0.01:
+                    if np.abs(np.array(current_points[i][j][k]) - np.array(last_points[i][j][k])) > 0.05:
                         return 0
         return 1
 
