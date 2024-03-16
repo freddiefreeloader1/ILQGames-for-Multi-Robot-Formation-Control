@@ -72,7 +72,7 @@ class UnicycleRobotUncertain:
 
     def integrate_dynamics_for_initial_state(self, state, u1s, u2s, dt, TIMESTEP, uncertainty=False):
         states = []
-        for i in range(TIMESTEP):
+        for i in range(TIMESTEP-1):
             #state = self.integrate_dynamics_for_given_state(state, u1s[i], u2s[i], dt, uncertainty)
             #state = self.runge_kutta_4_integration(state, u1s[i], u2s[i], dt, uncertainty)
             state = self.runge_kutta_4_integration(state, u1s[i], u2s[i], dt, uncertainty)

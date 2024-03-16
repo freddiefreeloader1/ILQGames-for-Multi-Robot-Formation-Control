@@ -1,6 +1,6 @@
 from scipy.linalg import block_diag
 
-from Costs import ProximityCost, OverallCost, ReferenceCost, WallCost, InputCost, ProximityCostUncertainLinear, ProximityCostUncertainQuad
+from Costs import ProximityCost, OverallCost, ReferenceCost, WallCost, InputCost, ProximityCostUncertainLinear, ProximityCostUncertainQuad, SpeedCost
 # from costs_torch import ProximityCost, ReferenceCost, OverallCost, WallCost, InputCost
 # from cost_autograd import ProximityCost, ReferenceCost, OverallCost, WallCost, InputCost
 
@@ -70,16 +70,19 @@ class MultiAgentDynamics():
         wall_cost_list = [[] for _ in range(len(self.agent_list))]
         input_cost_list = [[] for _ in range(len(self.agent_list))]
         overall_cost_list = [[] for _ in range(len(self.agent_list))]
+        speed_cost_list = [[] for _ in range(len(self.agent_list))]
 
         for i, agent in enumerate(self.agent_list):
-            ref_cost_list[i].append(ReferenceCost(i, self.xref_mp, [10,10,1,4]))
-            input_cost_list[i].append(InputCost(i, 100.0, 200.0))
+            ref_cost_list[i].append(ReferenceCost(i, self.xref_mp, [50,50,1,10]))
+            input_cost_list[i].append(InputCost(i, 600.0, 600.0))
+            speed_cost_list[i].append(SpeedCost(i, 200))
+
 
         if uncertainty == False:
             for i in range(len(self.agent_list)):
                 for j in range(len(self.agent_list)):
                     if i != j:
-                        prox_cost_list[i].append(ProximityCost(1.0, i, j, 100.0))
+                        prox_cost_list[i].append(ProximityCost(1.0, i, j, 500.0))
         else:
             for i in range(len(self.agent_list)):
                 for j in range(len(self.agent_list)-1):
@@ -91,7 +94,7 @@ class MultiAgentDynamics():
 
         for i in range(len(self.agent_list)):
             # add the reference cost and the proximity cost to the overall cost list
-            cost_list = ref_cost_list[i] + prox_cost_list[i] + wall_cost_list[i] + input_cost_list[i]
+            cost_list = ref_cost_list[i] + prox_cost_list[i] + wall_cost_list[i] + input_cost_list[i] + speed_cost_list[i]
             overall_cost_list[i].append(OverallCost(cost_list))
         return overall_cost_list
     
@@ -122,32 +125,8 @@ class MultiAgentDynamics():
                     u_next[i][ii] = u_prev[i][ii] - zeta*alphas[i][ii]
         return u_next
     
-    '''def line_search(self, Ps, alphas, xs, current_x, u_prev, c=0.5, tau=0.9):
-        zeta = 1.0
-        u_next = self.compute_control_vector_current(Ps, alphas, xs, current_x, u_prev)
-
-        while self.objective_function(u_next) > self.objective_function(u_prev) + c * zeta * np.sum(self.gradient_objective_function(u_prev) * (u_next - u_prev)):
-            zeta *= tau
-            u_next = self.compute_control_vector_current(Ps, alphas, xs, current_x, u_prev, zeta)
-        print(zeta)
-        return u_next
-
-    def objective_function(self, u):
-        # Calculate the cost associated with the control vector u
-        Rs_derivative = InputCost(0, 1.0).evaluate(u, [0]*self.num_agents*4)
-        
-        # Calculate the cost associated with the control vector u
-        cost = 0.5 * np.linalg.norm(Rs_derivative)**2
-        return cost
    
 
-    def gradient_objective_function(self, u):
-        # Calculate the gradient of the cost associated with the control vector u
-        grad = np.zeros((self.num_agents, self.TIMESTEPS, 2))
-        for i in range(self.num_agents):
-            for j in range(self.TIMESTEPS):
-                grad[i][j] = u[i][j]
-        return grad'''
 
     def integrate_dynamics(self):
         for i, agent in enumerate(self.agent_list):
@@ -196,7 +175,7 @@ class MultiAgentDynamics():
         for i in range(len(current_points)):
             for j in range(len(current_points[i])):
                 for k in range(len(current_points[i][j])):
-                    if np.abs(np.array(current_points[i][j][k]) - np.array(last_points[i][j][k])) > 0.0001:
+                    if np.abs(np.array(current_points[i][j][k]) - np.array(last_points[i][j][k])) > 0.01:
                         return 0
         return 1
 
@@ -215,6 +194,50 @@ class MultiAgentDynamics():
         return Gs, qs, rhos 
 
     def compute_op_point(self, Ps, alphas, current_x, u_prev, zeta = 0.02, uncertainty = False):
+        u_next = np.zeros((self.num_agents, self.TIMESTEPS, 2))
+        xs = np.zeros((self.num_agents, self.TIMESTEPS, 4))
+        # make the first state of the robots the same as the current state
+        for i, agent in enumerate(self.agent_list):
+            xs[i][0] = agent.x0
+
+        zeta = self.line_search(Ps, alphas, current_x, u_prev)
+
+        if current_x is not None:
+            for i, agent in enumerate(self.agent_list):
+                for ii in range(self.TIMESTEPS - 1):
+                    # concatenate the states of all the robots
+                    concatenated_states = np.concatenate([state[ii] for state in xs])
+                    concatenated_states_current = np.concatenate([state[ii] for state in current_x])
+                    u_next[i][ii] = u_prev[i][ii] - zeta*alphas[i][ii] - Ps[i][ii] @ (concatenated_states - concatenated_states_current)
+                    [u1, u2] = u_next[i][ii]
+                    if isinstance(agent, UnicycleRobot):
+                        xs[i][ii+1] = agent.runge_kutta_4_integration(xs[i][ii], u1, u2, self.dt)
+                    else:
+                        xs[i][ii+1] = agent.runge_kutta_4_integration(xs[i][ii], u1, u2, self.dt, uncertainty)
+        else:
+            for i, agent in enumerate(self.agent_list):
+                for ii in range(self.TIMESTEPS):
+                    u_next[i][ii] = u_prev[i][ii] - zeta*alphas[i][ii]
+                    [u1, u2] = u_next[i][ii]
+                    if isinstance(agent, UnicycleRobot):
+                        xs[i][ii] = agent.runge_kutta_4_integration(xs[i][ii], u1, u2, self.dt)
+                    else:   
+                        xs[i][ii] = agent.runge_kutta_4_integration(xs[i][ii], u1, u2, self.dt, uncertainty)
+        return xs, u_next
+      
+
+    def line_search(self, Ps, alphas, current_x, u_prev):
+        zeta = 1.0
+        while True:
+            xs, u_next = self.compute_op_point_imposter(Ps, alphas, current_x, u_prev, zeta)
+            if (np.linalg.norm(xs-current_x) < 50):
+                break
+            zeta = zeta/2
+
+        print(zeta)
+        return zeta
+
+    def compute_op_point_imposter(self, Ps, alphas, current_x, u_prev, zeta = 0.02, uncertainty = False):
         u_next = np.zeros((self.num_agents, self.TIMESTEPS, 2))
         xs = np.zeros((self.num_agents, self.TIMESTEPS, 4))
         # make the first state of the robots the same as the current state
@@ -243,4 +266,4 @@ class MultiAgentDynamics():
                     else:   
                         xs[i][ii] = agent.runge_kutta_4_integration(xs[i][ii], u1, u2, self.dt, uncertainty)
         return xs, u_next
-      
+ 

@@ -54,7 +54,7 @@ class UnicycleRobot:
 
     def integrate_dynamics_for_initial_state(self, state, u1s, u2s, dt, TIMESTEP):
         states = []
-        for i in range(TIMESTEP):
+        for i in range(TIMESTEP - 1):
             # state = self.integrate_dynamics_for_given_state(state, u1s[i], u2s[i], dt)
             # state = self.runge_kutta_4_integration(state, u1s[i], u2s[i], dt)
             state = self.runge_kutta_4_integration(state, u1s[i], u2s[i], dt)

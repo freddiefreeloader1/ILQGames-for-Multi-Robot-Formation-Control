@@ -218,7 +218,7 @@ try:
             # integrate the dynamics
             
 
-            xs, control_inputs = mp_dynamics.compute_op_point(Ps, alphas, current_points, prev_control_inputs, 0.02 , True)
+            xs, control_inputs = mp_dynamics.compute_op_point(Ps, alphas, current_points, prev_control_inputs, 0.02 , False)
 
             u1 = control_inputs[:,:,0]
             u2 = control_inputs[:,:,1]

@@ -30,7 +30,7 @@ def solve_lq_game(As, Bs, Qs, ls, Rs):
 
         S_rows = []
         for ii in range(num_players):
-            Zi = Z[ii]  # Define Zi variable
+            Zi = Z[ii]  
             S_rows.append(np.concatenate([
                 R[ii][ii] + B[ii].T @ Zi @ B[ii] if jj == ii else B[ii].T @ Zi @ B[jj]
                 for jj in range(num_players)
@@ -38,8 +38,10 @@ def solve_lq_game(As, Bs, Qs, ls, Rs):
 
         S = np.concatenate(S_rows, axis=0)
         Y = np.concatenate([B[ii].T @ Z[ii] @ A for ii in range(num_players)], axis=0)
+
         P, _, _, _ = np.linalg.lstsq(a=S, b=Y, rcond=None)
         P_split = np.split(P, np.cumsum(u_dims[:-1]), axis=0)
+
         for ii in range(num_players):
             Ps[ii].appendleft(P_split[ii])
 

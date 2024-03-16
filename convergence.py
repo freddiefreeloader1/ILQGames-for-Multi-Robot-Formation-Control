@@ -31,8 +31,8 @@ if scenerio == "intersection":
     x_ref_6 = np.array([0, -1, 0, 0])
 
 if scenerio == "overtaking":
-    x0_1 = [-3.0, -2.0, np.pi/4, 1.2]
-    x0_2 = [-3.1, 2.0, -np.pi/3, 1.1]
+    x0_1 = [-3.0, -2.0, 0, 1.2]
+    x0_2 = [-3.1, 2.0, 0, 1.1]
     x0_3 = [-3.0, 0.0, 0, 1.0]
     x0_4 = [-2.0, 3.0, 0.0, 0.0]
     x0_5 = [0.0, 1.0, 0.0, 0.0]
@@ -153,6 +153,7 @@ alphas = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2))
 
 try:
     while (flag == 0):
+
         start = time.time()
 
         
@@ -160,34 +161,34 @@ try:
         
         # xs = mp_dynamics.integrate_dynamics_for_initial_mp(u1, u2, mp_dynamics.dt)
         
-        
         xs, control_inputs = mp_dynamics.compute_op_point(Ps, alphas, current_points, prev_control_inputs, zeta = 0.015)
 
         # visualize the xs
-        plt.ion()
-        fig, ax = plt.subplots()
-        ax.set_xlim(-4, 4)
-        ax.set_ylim(-4, 4)
-        ax.grid(True)
-        colors = ['ro', 'go', 'bo', 'co', 'mo', 'yo']
-        for kk in range(mp_dynamics.TIMESTEPS):
-            ax.clear()
-            ax.grid(True)
+        '''if total_time_steps > 11:
+            plt.ion()
+            fig, ax = plt.subplots()
             ax.set_xlim(-4, 4)
             ax.set_ylim(-4, 4)
+            ax.grid(True)
+            colors = ['ro', 'go', 'bo', 'co', 'mo', 'yo']
+            for kk in range(mp_dynamics.TIMESTEPS):
+                ax.clear()
+                ax.grid(True)
+                ax.set_xlim(-4, 4)
+                ax.set_ylim(-4, 4)
 
-            for i in range(mp_dynamics.num_agents):
-                ax.plot(xs[i][kk][0], xs[i][kk][1], colors[i], label=f'Robot {i}', markersize=25)
-                ax.arrow(xs[i][kk][0], xs[i][kk][1], 0.3 * np.cos(xs[i][kk][2]), 0.3 * np.sin(xs[i][kk][2]), head_width=0.1)
+                for i in range(mp_dynamics.num_agents):
+                    ax.plot(xs[i][kk][0], xs[i][kk][1], colors[i], label=f'Robot {i}', markersize=25)
+                    ax.arrow(xs[i][kk][0], xs[i][kk][1], 0.3 * np.cos(xs[i][kk][2]), 0.3 * np.sin(xs[i][kk][2]), head_width=0.1)
 
-            plt.pause(0.01)
-            time.sleep(0.01)
-            plt.show()
+                plt.pause(0.01)
+                time.sleep(0.01)
+                plt.show()
 
-        plt.ioff()
+            plt.ioff()
 
-        # close the plot
-        plt.close()
+            # close the plot
+            plt.close()'''
 
         last_points = current_points
         current_points = xs
@@ -210,8 +211,8 @@ try:
         for ii in range(mp_dynamics.TIMESTEPS):
             concatenated_states = np.concatenate([state[ii] for state in xs])
             for i, robot in enumerate(mp_dynamics.agent_list):
-                Qs[i].append(costs[i][0].hessian_x(concatenated_states, control_inputs[i][ii]))
-                ls[i].append(costs[i][0].gradient_x(concatenated_states, control_inputs[i][ii]))
+                Qs[i].append(costs[i][0].hessian_x(concatenated_states, control_inputs[i][ii], timestep = ii))
+                ls[i].append(costs[i][0].gradient_x(concatenated_states, control_inputs[i][ii], timestep = ii))
                 Rs[i][i].append(costs[i][0].hessian_u(concatenated_states, control_inputs[i][ii]))
                 total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, control_inputs[i][ii]))
                 total_ref_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[0].evaluate(concatenated_states, control_inputs[i][ii]))
@@ -236,7 +237,7 @@ try:
         total_input_costs[total_time_steps] = sum(total_input_costs[total_time_steps])
 
         Ps, alphas = solve_lq_game(As, Bs, Qs, ls, Rs)
-
+     
         u1_array = np.array(u1)
         u2_array = np.array(u2)
 
