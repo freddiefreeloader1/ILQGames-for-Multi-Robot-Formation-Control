@@ -11,11 +11,11 @@ from MultiAgentDynamics import MultiAgentDynamics
 
 
 dt = 0.2
-HORIZON = 4
+HORIZON = 10
 TIMESTEPS = int(HORIZON / dt)
-scenerio = "overtaking"
+scenerio = "intersection"
 
-if scenerio == "intersection":
+if scenerio == "intersection":   # introduce ref cost after 20th timestep
     x0_1 = [-2.0, -2.0, 0.0, 1.0]
     x0_2 = [-2.0, 2.0, 0.0, 1.0]
     x0_3 = [0.0, 4.0, -np.pi/2, 3.0]
@@ -31,21 +31,43 @@ if scenerio == "intersection":
     x_ref_5 = np.array([-2, 0, 0, 0])
     x_ref_6 = np.array([0, -1, 0, 0])
 
-if scenerio == "overtaking":
-    x0_1 = [-3.0, -2.0, 0.0, 1.1]
-    x0_2 = [-3.0, 2.0, 0.0, 1]
-    x0_3 = [-3.0, 0.0, 0, 0.8]
+    ref_cost_threshold = 20 
+
+if scenerio == "overtaking":  # introduce ref cost after 35th timestep
+    x0_1 = [-3.0, -2.0, 0, 1.2]
+    x0_2 = [-3.1, 2.0, 0, 1.1]
+    x0_3 = [-3.0, 0.0, 0, 1.0]
     x0_4 = [-2.0, 3.0, 0.0, 0.0]
     x0_5 = [0.0, 1.0, 0.0, 0.0]
     x0_6 = [1.0, 0.0, 0.0, 0.0]
 
 
-    x_ref_1 = np.array([2, 2, 0, 0])
-    x_ref_2 = np.array([2, -2, 0, 0])
-    x_ref_3 = np.array([2, 0, 0, 0])
+    x_ref_1 = np.array([2, 3, 0, 0])
+    x_ref_2 = np.array([2, -3, 0, 0])
+    x_ref_3 = np.array([3, 0, 0, 0])
     x_ref_4 = np.array([2, 0, 0, 0])
     x_ref_5 = np.array([-2, 0, 0, 0])
     x_ref_6 = np.array([0, -1, 0, 0])
+
+    ref_cost_threshold = 35
+
+if scenerio == "line":   # introduce ref cost after 20th timestep
+    x0_1 = [-1.0, -1.0, 0, 0]
+    x0_2 = [-3.1, 2.0, 0, 0]
+    x0_3 = [3.0, -1.0, 0, 0]
+    x0_4 = [-2.0, 3.0, 0.0, 0.0]
+    x0_5 = [0.0, 1.0, 0.0, 0.0]
+    x0_6 = [1.0, 0.0, 0.0, 0.0]
+
+
+    x_ref_1 = np.array([0, 3, 0, 0])
+    x_ref_2 = np.array([0, -3, 0, 0])
+    x_ref_3 = np.array([0, 0, 0, 0])
+    x_ref_4 = np.array([2, 0, 0, 0])
+    x_ref_5 = np.array([-2, 0, 0, 0])
+    x_ref_6 = np.array([0, -1, 0, 0])
+
+    ref_cost_threshold = 20
 
 robot1 = UnicycleRobotUncertain(x0_1, x_ref_1, dt)
 robot2 = UnicycleRobotUncertain(x0_2, x_ref_2, dt)
@@ -56,7 +78,8 @@ robot6 = UnicycleRobotUncertain(x0_6, x_ref_6, dt)
 
 
 # mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3, robot4, robot5, robot6], dt, HORIZON)
-mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3], dt, HORIZON)
+mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3], dt, HORIZON, ref_cost_threshold)
+
 
 costs = mp_dynamics.define_costs_lists(uncertainty=True)
 
@@ -98,7 +121,7 @@ prev_control_inputs = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2
 control_inputs = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2))
 total_costs = []
 
-mu = np.array([[2.5, 2.5], [2.5, 2.5], [2.5, 2.5]])
+mu = np.array([[1, 1], [1, 1], [1, 1]])*0.1
 phi = 1.2
 
 Gs = np.empty((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, mp_dynamics.num_agents-1, 12), dtype=object)
@@ -125,7 +148,7 @@ prox_cost_list = [[] for _ in range(len(mp_dynamics.agent_list))]
 for i in range(len(mp_dynamics.agent_list)):
     for j in range(len(mp_dynamics.agent_list)):
         if i != j:
-            prox_cost_list[i].append(ProximityCost(1.0, i, j, 5.0))
+            prox_cost_list[i].append(ProximityCost(1.0, i, j, 100.0))
 
 
 for i in range(mp_dynamics.num_agents):
@@ -174,6 +197,14 @@ total_prox_costs = []
 total_wall_costs = []
 total_input_costs = []
 
+
+plt.ion()
+fig, ax = plt.subplots()
+ax.set_xlim(-4, 4)
+ax.set_ylim(-4, 4)
+ax.grid(True)
+colors = ['ro', 'go', 'bo', 'co', 'mo', 'yo']
+
 try:
     while(max_error > TOL_CC_ERROR):
         # define errors list as agent * agent-1 as list
@@ -211,14 +242,25 @@ try:
                 max_errors = np.float32(np.max(np.array(errors), 2))
                 max_error = np.max(max_errors)
             print('Max Error:', max_error)
-
-
-           
             
             # integrate the dynamics
             
-
             xs, control_inputs = mp_dynamics.compute_op_point(Ps, alphas, current_points, prev_control_inputs, 0.02 , False)
+
+            ax.clear()
+            ax.grid(True)
+            ax.set_xlim(-4, 4)
+            ax.set_ylim(-4, 4)
+
+            # get the first elements of xs
+
+            for i in range(mp_dynamics.num_agents):
+                ax.plot([x[0] for x in xs[i]], [x[1] for x in xs[i]], colors[i], label=f'Robot {i}', markersize=5)
+
+            plt.pause(0.01)
+            time.sleep(0.01)
+            plt.show()
+
 
             u1 = control_inputs[:,:,0]
             u2 = control_inputs[:,:,1]
@@ -252,8 +294,8 @@ try:
                 concatenated_states = np.concatenate([state[ii] for state in xs])
                 for i, robot in enumerate(mp_dynamics.agent_list):
                     for k in range(len(mp_dynamics.agent_list)-1):
-                        Qs[i].append(costs[i][0].hessian_x(concatenated_states, control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k], Is[i][k]))
-                        ls[i].append(costs[i][0].gradient_x(concatenated_states, control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k], Is[i][k]))
+                        Qs[i].append(costs[i][0].hessian_x(concatenated_states, control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k], Is[i][k], timestep = ii))
+                        ls[i].append(costs[i][0].gradient_x(concatenated_states, control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k], Is[i][k], timestep = ii))
                         Rs[i][i].append(costs[i][0].hessian_u(concatenated_states, control_inputs[i][ii]))
                         total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, control_inputs[i][ii], Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k], Is[i][k]))
                         total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[1].evaluate(concatenated_states, Gs[i][ii][k], qs[i][ii][k], rhos[i][ii][k], lambdas[i][k]))
@@ -321,7 +363,8 @@ except KeyboardInterrupt:
             total_input_costs[ii] = sum(total_input_costs[ii])
             total_wall_costs[ii] = sum(total_wall_costs[ii])
 
-
+plt.ioff()
+plt.close()
     
 # plot costs
 plt.figure()

@@ -10,7 +10,7 @@ from Diff_robot import UnicycleRobot
 from Diff_robot_uncertainty import UnicycleRobotUncertain
 
 class MultiAgentDynamics():
-    def __init__(self, agent_list, dt, HORIZON=3.0):
+    def __init__(self, agent_list, dt, HORIZON=3.0, ref_cost_threshold = 20):
         self.agent_list = agent_list
         self.dt = dt
         self.num_agents = len(agent_list)
@@ -19,6 +19,7 @@ class MultiAgentDynamics():
         self.TIMESTEPS = int(HORIZON/dt)
         self.us = self.get_control_vector()
         self.prob = 0.70
+        self.ref_cost_threshold = ref_cost_threshold
 
     def get_linearized_dynamics(self, u_list):
         A_traj_mp = []
@@ -77,7 +78,6 @@ class MultiAgentDynamics():
             input_cost_list[i].append(InputCost(i, 600.0, 600.0))
             speed_cost_list[i].append(SpeedCost(i, 200))
 
-
         if uncertainty == False:
             for i in range(len(self.agent_list)):
                 for j in range(len(self.agent_list)):
@@ -87,7 +87,7 @@ class MultiAgentDynamics():
             for i in range(len(self.agent_list)):
                 for j in range(len(self.agent_list)-1):
                     prox_cost_list[i].append(ProximityCostUncertainLinear(1.0))
-                    prox_cost_list[i].append(ProximityCostUncertainQuad(1.0))
+                    prox_cost_list[i].append(ProximityCostUncertainQuad(0.0))
                        
         for i in range(len(self.agent_list)):
             wall_cost_list[i].append(WallCost(i, 0.04))
@@ -95,7 +95,7 @@ class MultiAgentDynamics():
         for i in range(len(self.agent_list)):
             # add the reference cost and the proximity cost to the overall cost list
             cost_list = ref_cost_list[i] + prox_cost_list[i] + wall_cost_list[i] + input_cost_list[i] + speed_cost_list[i]
-            overall_cost_list[i].append(OverallCost(cost_list))
+            overall_cost_list[i].append(OverallCost(cost_list, self.ref_cost_threshold))
         return overall_cost_list
     
     def get_control_vector(self):

@@ -35,10 +35,10 @@ class ProximityCostUncertainLinear:
         self.weight = weight
 
     def evaluate(self, x, G, q, rho, lam):
-        cost = self.weight*lam*(G @ x  + q + rho)
+        cost = self.weight*lam*(G * x  + q + rho)
         return  cost
 
-    def gradient_x(self, x, G, lam):
+    def gradient_x(self, x, G, q, rho, lam):
         grad_x = self.weight*np.array(G) * lam
         return grad_x
 
@@ -50,7 +50,12 @@ class ProximityCostUncertainQuad:
         self.weight = weight
 
     def evaluate(self, x, G, q, rho, I):
-        cost = self.weight*(I/2)*(G @ x  + q + rho)**2
+        x = np.array(x)
+        G = np.array(G)
+        q = np.array(q)
+        rho = np.array(rho)
+        
+        cost = self.weight*(I/2)*((G*x  + q + rho))**2
         return  cost
 
     def gradient_x(self, x, G, q, rho, I):
@@ -164,6 +169,7 @@ class WallCost:
 class SpeedCost:
     def __init__(self, idx, weight=1.0):
         self.weight = weight
+        self.idx = idx
 
     def evaluate(self, x, u):
         return self.weight*((x[3])**2)
@@ -185,8 +191,9 @@ class TrialCost:
         return dist
 
 class OverallCost:
-    def __init__(self, subsystem_cost_functions):
+    def __init__(self, subsystem_cost_functions, ref_cost_threshold = 20):
         self.subsystem_cost_functions = subsystem_cost_functions
+        self.ref_cost_threshold = ref_cost_threshold
 
     def evaluate(self, x, u, G = 1, q = 1, rho = 1, lam = 1, I = 1):
         total_cost = 0.0
@@ -204,12 +211,12 @@ class OverallCost:
         total_cost = np.zeros(len(x))
         for subsystem_cost in self.subsystem_cost_functions:
             if isinstance(subsystem_cost, ProximityCostUncertainLinear):
-                total_cost += np.array(subsystem_cost.evaluate(x, G, q, rho, lam))
+                total_cost += np.array(subsystem_cost.gradient_x(x, G, q, rho, lam))
             elif isinstance(subsystem_cost, ProximityCostUncertainQuad):
-                total_cost += np.array(subsystem_cost.gradient_x(x, G, q, rho, I))
+                total_cost += np.array(subsystem_cost.evaluate(x, G, q, rho, I))
             else:
                 if isinstance(subsystem_cost, ReferenceCost):
-                    if timestep > 35:
+                    if timestep > self.ref_cost_threshold:
                         total_cost += np.array(subsystem_cost.gradient_x(x, u))
                 else:
                     total_cost += np.array(subsystem_cost.gradient_x(x, u))
@@ -221,12 +228,12 @@ class OverallCost:
         grad_x = np.zeros(len(x))
         for subsystem_cost in self.subsystem_cost_functions:
             if isinstance(subsystem_cost, ProximityCostUncertainLinear):
-                grad_x += np.array(subsystem_cost.evaluate(x, G, q, rho, lam))
+                grad_x += np.array(subsystem_cost.gradient_x(x, G, q, rho, lam))
             elif isinstance(subsystem_cost, ProximityCostUncertainQuad):
                 grad_x += np.array(subsystem_cost.gradient_x(x, G, q, rho, I))
             else:
                 if isinstance(subsystem_cost, ReferenceCost):
-                    if timestep > 35:
+                    if timestep > self.ref_cost_threshold:
                         grad_x += np.array(subsystem_cost.gradient_x(x, u))
                 else:
                     grad_x += np.array(subsystem_cost.gradient_x(x, u))

@@ -30,6 +30,8 @@ if scenerio == "intersection":   # introduce ref cost after 20th timestep
     x_ref_5 = np.array([-2, 0, 0, 0])
     x_ref_6 = np.array([0, -1, 0, 0])
 
+    ref_cost_threshold = 20 
+
 if scenerio == "overtaking":  # introduce ref cost after 35th timestep
     x0_1 = [-3.0, -2.0, 0, 1.2]
     x0_2 = [-3.1, 2.0, 0, 1.1]
@@ -45,6 +47,8 @@ if scenerio == "overtaking":  # introduce ref cost after 35th timestep
     x_ref_4 = np.array([2, 0, 0, 0])
     x_ref_5 = np.array([-2, 0, 0, 0])
     x_ref_6 = np.array([0, -1, 0, 0])
+
+    ref_cost_threshold = 35
 
 if scenerio == "line":   # introduce ref cost after 20th timestep
     x0_1 = [-1.0, -1.0, 0, 0]
@@ -62,6 +66,8 @@ if scenerio == "line":   # introduce ref cost after 20th timestep
     x_ref_5 = np.array([-2, 0, 0, 0])
     x_ref_6 = np.array([0, -1, 0, 0])
 
+    ref_cost_threshold = 20
+
 robot1 = UnicycleRobot(x0_1, x_ref_1, dt)
 robot2 = UnicycleRobot(x0_2, x_ref_2, dt)
 robot3 = UnicycleRobot(x0_3, x_ref_3, dt)
@@ -71,7 +77,7 @@ robot6 = UnicycleRobot(x0_6, x_ref_6, dt)
 
 
 # mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3, robot4, robot5, robot6], dt, HORIZON)
-mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3], dt, HORIZON)
+mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3], dt, HORIZON, ref_cost_threshold)
 
 costs = mp_dynamics.define_costs_lists()
 
@@ -163,7 +169,12 @@ Ps = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2, mp_dynamics.num
 
 # initialize the alphas with shape 3,50,2
 alphas = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2))
-
+plt.ion()
+fig, ax = plt.subplots()
+ax.set_xlim(-4, 4)
+ax.set_ylim(-4, 4)
+ax.grid(True)
+colors = ['ro', 'go', 'bo', 'co', 'mo', 'yo']
 
 try:
     while (flag == 0):
@@ -178,31 +189,22 @@ try:
         xs, control_inputs = mp_dynamics.compute_op_point(Ps, alphas, current_points, prev_control_inputs, zeta = 0.015)
 
         # visualize the xs
-        '''if total_time_steps > 11:
-            plt.ion()
-            fig, ax = plt.subplots()
-            ax.set_xlim(-4, 4)
-            ax.set_ylim(-4, 4)
-            ax.grid(True)
-            colors = ['ro', 'go', 'bo', 'co', 'mo', 'yo']
-            for kk in range(mp_dynamics.TIMESTEPS):
-                ax.clear()
-                ax.grid(True)
-                ax.set_xlim(-4, 4)
-                ax.set_ylim(-4, 4)
 
-                for i in range(mp_dynamics.num_agents):
-                    ax.plot(xs[i][kk][0], xs[i][kk][1], colors[i], label=f'Robot {i}', markersize=25)
-                    ax.arrow(xs[i][kk][0], xs[i][kk][1], 0.3 * np.cos(xs[i][kk][2]), 0.3 * np.sin(xs[i][kk][2]), head_width=0.1)
+        ax.clear()
+        ax.grid(True)
+        ax.set_xlim(-4, 4)
+        ax.set_ylim(-4, 4)
 
-                plt.pause(0.01)
-                time.sleep(0.01)
-                plt.show()
+        # get the first elements of xs
 
-            plt.ioff()
 
-            # close the plot
-            plt.close()'''
+
+        for i in range(mp_dynamics.num_agents):
+            ax.plot([x[0] for x in xs[i]], [x[1] for x in xs[i]], colors[i], label=f'Robot {i}', markersize=5)
+
+        plt.pause(0.01)
+        time.sleep(0.01)
+        plt.show()
 
         last_points = current_points
         current_points = xs
@@ -251,19 +253,6 @@ try:
         total_input_costs[total_time_steps] = sum(total_input_costs[total_time_steps])
 
         Ps, alphas = solve_lq_game(As, Bs, Qs, ls, Rs)
-     
-        u1_array = np.array(u1)
-        u2_array = np.array(u2)
-
-        # Reshape u1 and u2
-        u1_reshaped = np.reshape(u1_array, (u1_array.shape[0], u1_array.shape[1], 1))
-        u2_reshaped = np.reshape(u2_array, (u2_array.shape[0], u2_array.shape[1], 1))
-
-        # Combine u1_reshaped and u2_reshaped along the last axis to get (num_agents, timesteps, 2)
-
-        # control_inputs = np.concatenate((u1_reshaped, u2_reshaped), axis=-1)
-
-        # control_inputs = mp_dynamics.compute_control_vector_current(Ps, alphas, xs, current_points, prev_control_inputs)
 
         prev_control_inputs = control_inputs
 
@@ -301,6 +290,8 @@ except KeyboardInterrupt:
             total_wall_costs[ii] = sum(total_wall_costs[ii])
             total_input_costs[ii] = sum(total_input_costs[ii])
 
+plt.ioff()
+plt.close()
 
 # plot costs
 plt.figure()
