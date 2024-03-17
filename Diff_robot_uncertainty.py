@@ -12,39 +12,51 @@ class UnicycleRobotUncertain:
         self.state = torch.tensor([x0[0], x0[1], x0[2], x0[3]], requires_grad=True)  # (x, y, theta, v)
         self.xref = xref
         self.dt = dt
-        self.uncertainty_params = {'A_uncertainty': 0.005, 'B_uncertainty': 0.0}
+        self.uncertainty_params = [0.1, 0.1, 0.1, 0.1] 
 
-    def set_uncertainty_params(self, A_uncertainty, B_uncertainty):
-        self.uncertainty_params['A_uncertainty'] = A_uncertainty
-        self.uncertainty_params['B_uncertainty'] = B_uncertainty
+    def set_uncertainty_params(self, sigmas):
+        self.uncertainty_params = sigmas
 
     def dynamics(self, u1, u2):
 
         x, y, theta, v = self.state
-        A_uncertainty = torch.normal(0, self.uncertainty_params['A_uncertainty'])
-        B_uncertainty = torch.normal(0, self.uncertainty_params['B_uncertainty'])
 
-        x_dot = v * torch.cos(theta) + A_uncertainty 
-        y_dot = v * torch.sin(theta) + A_uncertainty 
-        theta_dot = torch.tensor(u1) + B_uncertainty 
-        v_dot = torch.tensor(u2) + B_uncertainty
+        if uncertainty:
+            x_uncertainty = np.random.normal(0.0, self.uncertainty_params[0])
+            y_uncertainty = np.random.normal(0.0, self.uncertainty_params[1])
+            theta_uncertainty = np.random.normal(0.0, self.uncertainty_params[2])
+            v_uncertainty = np.random.normal(0.0, self.uncertainty_params[3])
+        else:
+            x_uncertainty = 0
+            y_uncertainty = 0
+            theta_uncertainty = 0
+            v_uncertainty = 0
+
+        x_dot = v * np.cos(theta) + x_uncertainty
+        y_dot = v * np.sin(theta) + y
+        theta_dot = np.tensor(u1) + theta_uncertainty
+        v_dot = np.tensor(u2) +  v_uncertainty
 
         return torch.stack([x_dot, y_dot, theta_dot, v_dot])
 
     def dynamics_for_given_state(self, state, u1, u2, uncertainty=False):
-        if uncertainty == True:
-            A_uncertainty = np.random.normal(0, self.uncertainty_params['A_uncertainty'])
+        if uncertainty:
+            x_uncertainty = np.random.normal(0.0, self.uncertainty_params[0])
+            y_uncertainty = np.random.normal(0.0, self.uncertainty_params[1])
+            theta_uncertainty = np.random.normal(0.0, self.uncertainty_params[2])
+            v_uncertainty = np.random.normal(0.0, self.uncertainty_params[3])
         else:
-            A_uncertainty = 0
+            x_uncertainty = 0
+            y_uncertainty = 0
+            theta_uncertainty = 0
+            v_uncertainty = 0
 
-        B_uncertainty = 0
-        
         x, y, theta, v  = state
 
-        x_dot = v * np.cos(theta) + A_uncertainty
-        y_dot = v * np.sin(theta) + A_uncertainty
-        theta_dot = u1 + A_uncertainty
-        v_dot = u2 + A_uncertainty
+        x_dot = v * np.cos(theta) + x_uncertainty
+        y_dot = v * np.sin(theta) + y_uncertainty
+        theta_dot = u1 + theta_uncertainty
+        v_dot = u2 + v_uncertainty
 
         return [x_dot, y_dot, theta_dot, v_dot]
 
@@ -62,7 +74,7 @@ class UnicycleRobotUncertain:
     def runge_kutta_4_integration(self,state, u1, u2, dt, uncertainty):
         # Runge-Kutta 4 integration method
 
-        k1 = np.array(self.dynamics_for_given_state(state, u1, u2, uncertainty ))
+        k1 = np.array(self.dynamics_for_given_state(state, u1, u2, uncertainty))
         k2 = np.array(self.dynamics_for_given_state(state + 0.5 * dt * k1, u1, u2, uncertainty))
         k3 = np.array(self.dynamics_for_given_state(state + 0.5 * dt * k2, u1, u2, uncertainty))
         k4 = np.array(self.dynamics_for_given_state(state + dt * k3, u1, u2, uncertainty))

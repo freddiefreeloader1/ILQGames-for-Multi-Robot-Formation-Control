@@ -91,7 +91,7 @@ class MultiAgentDynamics():
                 for j in range(len(self.agent_list)-1):
                     prox_cost_list[i].append(ProximityCostUncertainLinear(1.0))
                     prox_cost_list[i].append(ProximityCostUncertainQuad(0.0))
-                       
+                    
         for i in range(len(self.agent_list)):
             wall_cost_list[i].append(WallCost(i, 0.04))
 

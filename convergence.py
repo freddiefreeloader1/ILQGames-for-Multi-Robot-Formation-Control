@@ -90,9 +90,7 @@ headings = [[] for _ in range(mp_dynamics.num_agents)]
 ls = []
 Qs = []
 
-for i in range(mp_dynamics.num_agents):
-    Qs.append([costs[i][0].hessian_x(mp_dynamics.x0_mp, [0]*mp_dynamics.num_agents*4)]*mp_dynamics.TIMESTEPS)
-    ls.append([costs[i][0].gradient_x(mp_dynamics.x0_mp, [0]*mp_dynamics.num_agents*4)]*mp_dynamics.TIMESTEPS)
+
 
 Rs = mp_dynamics.get_control_cost_matrix()
 
@@ -112,6 +110,7 @@ for i in range(mp_dynamics.num_agents):
         u1[i][t] = 0.5*np.sin(t*mp_dynamics.dt)
         u1[i][t] = 0.0
         u2[i][t] = 0.0
+
 
 # u1 = [[0.0]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
 # u2 = [[4]*mp_dynamics.TIMESTEPS for agent in mp_dynamics.agent_list]
