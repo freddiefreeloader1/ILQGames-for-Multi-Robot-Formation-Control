@@ -69,9 +69,9 @@ if scenerio == "line":   # introduce ref cost after 20th timestep
 
     ref_cost_threshold = 20
 
-sigma1 = [0.5, 0.5, 0.1, 0.1]
+sigma1 = [0.2, 0.2, 0.1, 0.1]
 sigma2 = [0.1, 0.3, 0.1, 0.1]
-sigma3 = [0.2, 0.1, 0.1, 0.5]
+sigma3 = [0.2, 0.1, 0.1, 0.1]
 sigma4 = [0.1, 0.1, 0.1, 0.1]
 sigma5 = [0.1, 0.1, 0.1, 0.1]
 sigma6 = [0.1, 0.1, 0.1, 0.1]
@@ -86,12 +86,16 @@ robot3.set_uncertainty_params(sigma3)
 
 
 robot4 = UnicycleRobotUncertain(x0_4, x_ref_4, dt)
+robot4.set_uncertainty_params(sigma4)
 robot5 = UnicycleRobotUncertain(x0_5, x_ref_5, dt)
+robot5.set_uncertainty_params(sigma5)
 robot6 = UnicycleRobotUncertain(x0_6, x_ref_6, dt)
+robot6.set_uncertainty_params(sigma6)
 
 
+prob = 0.7
 # mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3, robot4, robot5, robot6], dt, HORIZON)
-mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3], dt, HORIZON, ref_cost_threshold)
+mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3], dt, HORIZON, ref_cost_threshold, prob)
 
 
 costs = mp_dynamics.define_costs_lists(uncertainty=True)
@@ -134,8 +138,8 @@ prev_control_inputs = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2
 control_inputs = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2))
 total_costs = []
 
-mu = np.array([[1, 1], [1, 1], [1, 1]])*4
-phi = 1.2
+mu = np.array([[1, 1], [1, 1], [1, 1]])*0.005
+phi = 2
 
 Gs = np.empty((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, mp_dynamics.num_agents-1, 12), dtype=object)
 qs = np.empty((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, mp_dynamics.num_agents-1), dtype=object)
@@ -161,8 +165,6 @@ sigmas = np.array([sigmas_block_diag for _ in range(mp_dynamics.TIMESTEPS)])
 # define sigmas based on the sigma values of the robots only for the first state
 for i in range(mp_dynamics.num_agents):
     sigmas[0][i*identity_size:(i+1)*identity_size, i*identity_size:(i+1)*identity_size] = np.diag([sigma for sigma in mp_dynamics.agent_list[i].uncertainty_params])
-
-
 
 
 prox_cost_list = [[] for _ in range(len(mp_dynamics.agent_list))]
@@ -239,13 +241,15 @@ try:
         print(max_error)
         for i in range(mp_dynamics.num_agents):
             for j in range(mp_dynamics.num_agents-1):
-                lambdas[i][j] = max(0,lambdas[i][j] + mu[i][j] * np.abs((0.70 - max_errors[i][j])))
-                Is[i][j] = 0 if (0.7 - max_error < 0.0)&(lambdas[i][j] == 0) else mu[i][j]
+                lambdas[i][j] = max(0,lambdas[i][j] + mu[i][j] * np.abs((prob - max_errors[i][j])))
+                Is[i][j] = 0 if (prob - max_error < 0.0)&(lambdas[i][j] == 0) else mu[i][j]
 
         for i in range(mp_dynamics.num_agents):
             for j in range(mp_dynamics.num_agents-1):
                 mu[i][j] *= phi
         flag = 0
+        # total_time_steps = 0
+        print("New Mu Values: ", mu)
         while (flag == 0):
 
             start = time.time()

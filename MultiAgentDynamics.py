@@ -10,7 +10,7 @@ from Diff_robot import UnicycleRobot
 from Diff_robot_uncertainty import UnicycleRobotUncertain
 
 class MultiAgentDynamics():
-    def __init__(self, agent_list, dt, HORIZON=3.0, ref_cost_threshold = 20):
+    def __init__(self, agent_list, dt, HORIZON=3.0, ref_cost_threshold = 20, prob = 0.70):
         self.agent_list = agent_list
         self.dt = dt
         self.num_agents = len(agent_list)
@@ -18,7 +18,7 @@ class MultiAgentDynamics():
         self.xref_mp = np.concatenate([agent.xref for agent in agent_list])
         self.TIMESTEPS = int(HORIZON/dt)
         self.us = self.get_control_vector()
-        self.prob = 0.70
+        self.prob = prob
         self.ref_cost_threshold = ref_cost_threshold
 
     def get_linearized_dynamics(self, u_list):
@@ -178,7 +178,7 @@ class MultiAgentDynamics():
         for i in range(len(current_points)):
             for j in range(len(current_points[i])):
                 for k in range(len(current_points[i][j])):
-                    if np.abs(np.array(current_points[i][j][k]) - np.array(last_points[i][j][k])) > 0.05:
+                    if np.abs(np.array(current_points[i][j][k]) - np.array(last_points[i][j][k])) > 0.1:
                         return 0
         return 1
 
