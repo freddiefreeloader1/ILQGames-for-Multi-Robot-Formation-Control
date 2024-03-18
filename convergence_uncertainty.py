@@ -13,7 +13,7 @@ from MultiAgentDynamics import MultiAgentDynamics
 dt = 0.2
 HORIZON = 10
 TIMESTEPS = int(HORIZON / dt)
-scenerio = "intersection"
+scenerio = "overtaking"
 
 if scenerio == "intersection":   # introduce ref cost after 20th timestep
     x0_1 = [-2.0, -2.0, 0.0, 1.0]
@@ -93,7 +93,7 @@ robot6 = UnicycleRobotUncertain(x0_6, x_ref_6, dt)
 robot6.set_uncertainty_params(sigma6)
 
 
-prob = 0.7
+prob = 0.95
 # mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3, robot4, robot5, robot6], dt, HORIZON)
 mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3], dt, HORIZON, ref_cost_threshold, prob)
 
@@ -369,14 +369,7 @@ try:
             
             
             if total_time_steps > 0:
-                flag = mp_dynamics.check_convergence(current_points, last_points)
-
-            if flag == 1:
-                for ii in range(mp_dynamics.TIMESTEPS):
-                    for i, agent in enumerate(mp_dynamics.agent_list):
-                        x_traj[i].append(xs[i][ii][0])
-                        y_traj[i].append(xs[i][ii][1])
-                        headings[i].append(xs[i][ii][2])
+                flag = mp_dynamics.check_convergence(current_points, last_points)                
 
             total_time_steps += 1
             # print the iteration with text
@@ -401,6 +394,12 @@ except KeyboardInterrupt:
 
 plt.ioff()
 plt.close()
+
+for ii in range(mp_dynamics.TIMESTEPS):
+    for i, agent in enumerate(mp_dynamics.agent_list):
+        x_traj[i].append(xs_real[i][ii][0])
+        y_traj[i].append(xs_real[i][ii][1])
+        headings[i].append(xs_real[i][ii][2])
     
 # plot costs
 plt.figure()

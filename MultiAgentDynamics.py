@@ -78,7 +78,7 @@ class MultiAgentDynamics():
             input_cost_list[i].append(InputCost(i, 600.0, 600.0))
             
             if True:
-                speed_cost_list[i].append(SpeedCost(i, 60))
+                speed_cost_list[i].append(SpeedCost(i, 20))
                 
 
         if uncertainty == False:
