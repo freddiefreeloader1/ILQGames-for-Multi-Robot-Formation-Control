@@ -5,10 +5,8 @@ from scipy.linalg import block_diag
 
 from solve_lq_problem import solve_lq_game
 from Diff_robot_uncertainty import UnicycleRobotUncertain
-from Costs import ProximityCost, OverallCost, ReferenceCost
+from Costs import ProximityCost, OverallCost, ReferenceCost, WallCost, ProximityCostUncertainLinear , ProximityCostUncertainQuad, InputCost
 from MultiAgentDynamics import MultiAgentDynamics
-
-
 
 dt = 0.2
 HORIZON = 10
@@ -138,7 +136,7 @@ prev_control_inputs = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2
 control_inputs = np.zeros((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, 2))
 total_costs = []
 
-mu = np.array([[1, 1], [1, 1], [1, 1]])*0.005
+mu = np.array([[1]*(mp_dynamics.num_agents-1)]*mp_dynamics.num_agents)*0.005
 phi = 2
 
 Gs = np.empty((mp_dynamics.num_agents, mp_dynamics.TIMESTEPS, mp_dynamics.num_agents-1, 12), dtype=object)
@@ -338,16 +336,20 @@ try:
                     # Append gradients, costs, etc. as before
                     ls[i].append(gradient_x_sum)
                     Rs[i][i].append(hessian_u)
-
                     total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, control_inputs[i][ii], Gs[i][ii][0], qs[i][ii][0], rhos[i][ii][0], lambdas[i][0], Is[i][0]))
-                    total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, control_inputs[i][ii], Gs[i][ii][1], qs[i][ii][1], rhos[i][ii][1], lambdas[i][1], Is[i][1]))
-                    total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[1].evaluate(concatenated_states, Gs[i][ii][0], qs[i][ii][0], rhos[i][ii][0], lambdas[i][0]))
-                    total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[2].evaluate(concatenated_states, Gs[i][ii][1], qs[i][ii][1], rhos[i][ii][1], lambdas[i][1]))
-                    # total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[3].evaluate(concatenated_states, Gs[i][ii][0], qs[i][ii][0], rhos[i][ii][0], Is[i][0]))
-                    # total_prox_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[4].evaluate(concatenated_states, Gs[i][ii][1], qs[i][ii][1], rhos[i][ii][1], Is[i][1]))
-                    total_ref_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[0].evaluate(concatenated_states, control_inputs[i][ii]))
-                    total_input_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[6].evaluate(concatenated_states, control_inputs[i][ii]))
-                    total_wall_costs[total_time_steps].append(costs[i][0].subsystem_cost_functions[5].evaluate(concatenated_states, control_inputs[i][ii]))
+                    for cost in costs[i][0].subsystem_cost_functions:
+                        if isinstance(cost, ReferenceCost):
+                            total_ref_costs[total_time_steps].append(cost.evaluate(concatenated_states, control_inputs[i][ii]))
+                        if isinstance(cost, WallCost):
+                            total_wall_costs[total_time_steps].append(cost.evaluate(concatenated_states, control_inputs[i][ii]))
+                        if isinstance(cost, InputCost):
+                            total_input_costs[total_time_steps].append(cost.evaluate(concatenated_states, control_inputs[i][ii]))
+                        if isinstance(cost, ProximityCostUncertainLinear):
+                            total_prox_costs[total_time_steps].append(cost.evaluate(concatenated_states, Gs[i][ii][0], qs[i][ii][0], rhos[i][ii][0], lambdas[i][0]))
+                        if isinstance(cost, ProximityCostUncertainQuad):
+                            total_prox_costs[total_time_steps].append(cost.evaluate(concatenated_states, Gs[i][ii][1], qs[i][ii][1], rhos[i][ii][1], Is[i][1]))
+                        
+
 
 
             # sum the costs 

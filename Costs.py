@@ -26,7 +26,7 @@ class ProximityCost:
         grad_x[4*self.idx2] = -2*(x[4*self.idx1] - x[4*self.idx2])*denom
         grad_x[4*self.idx2 + 1] = -2*(x[4*self.idx1 + 1] - x[4*self.idx2 + 1])*denom
         return grad_x
-
+    
     def gradient_u(self, x, u):
         return [0.0 for _ in range(len(u))]
 
@@ -56,7 +56,7 @@ class ProximityCostUncertainQuad:
         q = np.array(q)
         rho = np.array(rho)
         
-        cost = self.weight*(I/2)*((G*x  + q + rho))**2
+        cost = self.weight*(I/2)*((G@x  + q + rho))**2
         return  cost
 
     def gradient_x(self, x, G, q, rho, I):
