@@ -229,7 +229,7 @@ try:
         for ii in range(mp_dynamics.TIMESTEPS):
             concatenated_states = np.concatenate([state[ii] for state in xs])
             for i, robot in enumerate(mp_dynamics.agent_list):
-                Qs[i].append(costs[i][0].hessian_x(concatenated_states, control_inputs[i][ii], timestep = ii))
+                Qs[i].append(costs[i][0].hessian_manual(concatenated_states, control_inputs[i][ii], timestep = ii))
                 ls[i].append(costs[i][0].gradient_x(concatenated_states, control_inputs[i][ii], timestep = ii))
                 Rs[i][i].append(costs[i][0].hessian_u(concatenated_states, control_inputs[i][ii]))
                 total_costs[total_time_steps].append(costs[i][0].evaluate(concatenated_states, control_inputs[i][ii]))

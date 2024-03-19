@@ -27,8 +27,33 @@ class ProximityCost:
         grad_x[4*self.idx2 + 1] = -2*(x[4*self.idx1 + 1] - x[4*self.idx2 + 1])*denom
         return grad_x
     
+
+    def hessian_x(self, x, u):
+        dist = np.sqrt((x[4*self.idx1] - x[4*self.idx2])**2 + (x[4*self.idx1 + 1] - x[4*self.idx2 + 1])**2)
+        if dist > self.d_threshold:
+            # If the distance is greater than the threshold, the Hessian is zero
+            return np.zeros((len(x), len(x)))
+        
+        # Calculate the denominator
+        denom = -2 * self.weight * (self.d_threshold - dist)
+        
+        # Calculate the Hessian
+        H = np.zeros((len(x), len(x)))
+        H[4*self.idx1, 4*self.idx1] = 2 * denom
+        H[4*self.idx1 + 1, 4*self.idx1 + 1] = 2 * denom
+        H[4*self.idx2, 4*self.idx2] = 2 * denom
+        H[4*self.idx2 + 1, 4*self.idx2 + 1] = 2 * denom
+        H[4*self.idx1, 4*self.idx2] = -2 * denom
+        H[4*self.idx2, 4*self.idx1] = -2 * denom
+        H[4*self.idx1 + 1, 4*self.idx2 + 1] = -2 * denom
+        H[4*self.idx2 + 1, 4*self.idx1 + 1] = -2 * denom
+        
+        return H
+
     def gradient_u(self, x, u):
         return [0.0 for _ in range(len(u))]
+    
+        
 
 class ProximityCostUncertainLinear:
     def __init__(self, weight = 1.0):
@@ -45,6 +70,9 @@ class ProximityCostUncertainLinear:
 
     def gradient_u(self, x, u):
         return [0.0 for _ in range(len(u))]
+
+    def hessian_x(self, x, G, q, rho, lam):
+        return np.zeros((len(x), len(x)))
 
 class ProximityCostUncertainQuad:
     def __init__(self, weight = 1.0):
@@ -66,6 +94,9 @@ class ProximityCostUncertainQuad:
 
     def gradient_u(self, x, u):
         return [0.0 for _ in range(len(u))]
+
+    def hessian_x(self, x, G, q, rho, I):
+        return self.weight*I*np.array(G).T @ np.array(G)
 
 class ReferenceCost:
     def __init__(self, idx = 0, x_ref = np.array([0, 0, 0, 0, 0, 0, 0, 0]), weight = [1, 1, 1, 1]):
@@ -94,6 +125,12 @@ class ReferenceCost:
         grad_x[4*self.idx + 3] = 2*self.weight[3]*(x[4*self.idx + 3] - self.x_ref[4*self.idx + 3])
         return grad_x
 
+    def hessian_x(self, x, u):
+        H = np.zeros((len(x), len(x)))
+        for i in range(4):
+            H[4*self.idx + i, 4*self.idx + i] = 2 * self.weight[i]
+        return H
+
     def gradient_u(self, x, u):
         return [0.0 for _ in range(len(u))]
 
@@ -115,6 +152,9 @@ class InputCost:
         grad_u[0] = 2*self.weight1*u[0]
         grad_u[1] = 2*self.weight2*u[1]
         return grad_u
+        
+    def hessian_x(self, x, u):
+        return np.zeros((len(x), len(x)))
 
 
 
@@ -168,6 +208,24 @@ class WallCost:
     def gradient_u(self, x, u):
         return [0.0 for _ in range(len(u))]
 
+    def hessian_x(self, x, u):
+        x_robot = x[4 * self.idx]
+        y_robot = x[4 * self.idx + 1]
+
+        side_length = 7.0
+        x_center = 0.0
+        y_center = 0.0
+
+        dx = max(0, abs(x_robot - x_center) - 0.5 * side_length)
+        dy = max(0, abs(y_robot - y_center) - 0.5 * side_length)
+
+        hessian_x = np.zeros((len(x), len(x)))
+        if dx > 0:
+            hessian_x[4 * self.idx, 4 * self.idx] = 2 * self.weight
+        if dy > 0:
+            hessian_x[4 * self.idx + 1, 4 * self.idx + 1] = 2 * self.weight
+        return hessian_x
+
 class SpeedCost:
     def __init__(self, idx, weight=1.0):
         self.weight = weight
@@ -184,7 +242,11 @@ class SpeedCost:
     def gradient_u(self, x, u):
         return [0.0 for _ in range(len(u))]
 
-    
+    def hessian_x(self, x, u):
+        hessian_x = np.zeros((len(x), len(x)))
+        hessian_x[4*self.idx + 3, 4*self.idx + 3] = 2 * self.weight
+        return hessian_x    
+
 class TrialCost:
     def __init__(self, d_threshold=0.5):
         self.d_threshold = 0.5
@@ -260,31 +322,34 @@ class OverallCost:
     def hessian_u(self, x, u):
         hessian_u = approx_fprime(u, lambda u: self.gradient_u(x, u), epsilon=1e-6)
         return hessian_u
-    
+
+    def hessian_manual(self, x, u, G = 1, q = 1, rho = 1, lam = 1, I = 1, timestep = 0):
+        hessian_x = np.zeros((len(x), len(x)))
+        for subsystem_cost in self.subsystem_cost_functions:
+            if isinstance(subsystem_cost, ProximityCostUncertainLinear):
+                hessian_x += subsystem_cost.hessian_x(x, G , q, rho, lam)
+            elif isinstance(subsystem_cost, ProximityCostUncertainQuad):
+                hessian_x += subsystem_cost.hessian_x(x, G , q, rho, I)
+            else:
+                hessian_x += subsystem_cost.hessian_x(x, u)
+        return hessian_x
 
 def trial():
-    trial_cost = TrialCost()
-    overall_cost = OverallCost([ProximityCost(idx1 = 0, idx2 = 1), ReferenceCost(idx = 0, weight = 1.0)])
-    wall_cost = OverallCost([WallCost(0, 1.0)])
 
-    x_example = np.array([-8, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    overall_cost = OverallCost([ProximityCost(idx1 = 0, idx2 = 1)])
+    prox_cost = ProximityCost(idx1 = 0, idx2 = 1)
+
+    x_example = np.array([1, 1.1, 1.0, 1.0, 1.1, 1.0, 1.0, 1.0, 1.1, 1.0, 1.0, 1.0])
     u_example = np.array([1, 1])
 
-    total_cost = overall_cost.evaluate(x_example, u_example)
-    gradient_x = overall_cost.gradient_x(x_example, u_example)
     hessian_x = overall_cost.hessian_x(x_example, u_example)
-    hessian_x_2 = overall_cost.hessian_x_2(x_example, u_example)
-    hessian_u = overall_cost.hessian_u(x_example, u_example)
+    hessian_x = np.round(hessian_x, 1)
+    hessian_x_2 = prox_cost.hessian_x(x_example, u_example)
+    hessian_x_2 = np.round(hessian_x_2, 1)
 
-    gradient_x_wall = wall_cost.gradient_x(x_example, u_example)
-    hessian_x_wall = wall_cost.hessian_x(x_example, u_example)
-    hessian_x_2_wall = wall_cost.hessian_x_2(x_example, u_example)
-
-
-    #print("Total Cost:", total_cost)
-    #print("Gradient with respect to x:", gradient_x)
-    print("Hessian with respect to x:", hessian_x)
-    print("Hessian with respect to x:", hessian_x_2)
+    print(hessian_x)
+    print("--------------------------------------------")
+    print(hessian_x_2)
 
 # trial()
 

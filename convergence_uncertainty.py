@@ -67,9 +67,9 @@ if scenerio == "line":   # introduce ref cost after 20th timestep
 
     ref_cost_threshold = 20
 
-sigma1 = [0.2, 0.2, 0.1, 0.1]
-sigma2 = [0.1, 0.3, 0.1, 0.1]
-sigma3 = [0.2, 0.1, 0.1, 0.1]
+sigma1 = [0.1, 0.1, 0.1, 0.1]
+sigma2 = [0.1, 0.1, 0.1, 0.1]
+sigma3 = [0.1, 0.1, 0.1, 0.1]
 sigma4 = [0.1, 0.1, 0.1, 0.1]
 sigma5 = [0.1, 0.1, 0.1, 0.1]
 sigma6 = [0.1, 0.1, 0.1, 0.1]
@@ -93,7 +93,7 @@ robot6.set_uncertainty_params(sigma6)
 
 prob = 0.95
 # mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3, robot4, robot5, robot6], dt, HORIZON)
-mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3], dt, HORIZON, ref_cost_threshold, prob)
+mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3, robot4], dt, HORIZON, ref_cost_threshold, prob)
 
 
 costs = mp_dynamics.define_costs_lists(uncertainty=True)
@@ -281,7 +281,6 @@ try:
             time.sleep(0.01)
             plt.show()
 
-
             u1 = control_inputs[:,:,0]
             u2 = control_inputs[:,:,1]
 
@@ -320,7 +319,7 @@ try:
                     gradient_list = []
                     for j in range(mp_dynamics.num_agents-1):
                         gradient_x_0 = costs[i][0].gradient_x(concatenated_states, control_inputs[i][ii], Gs[i][ii][j], qs[i][ii][j], rhos[i][ii][j], lambdas[i][j], Is[i][j], timestep=ii)
-                        hessian_x_0 = costs[i][0].hessian_x(concatenated_states, control_inputs[i][ii], Gs[i][ii][j], qs[i][ii][j], rhos[i][ii][j], lambdas[i][j], Is[i][j], timestep=ii)
+                        hessian_x_0 = costs[i][0].hessian_manual(concatenated_states, control_inputs[i][ii], Gs[i][ii][j], qs[i][ii][j], rhos[i][ii][j], lambdas[i][j], Is[i][j], timestep=ii)
                         hessian_list.append(hessian_x_0)
                         gradient_list.append(gradient_x_0)
                     
