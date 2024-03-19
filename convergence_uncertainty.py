@@ -67,6 +67,7 @@ if scenerio == "line":   # introduce ref cost after 20th timestep
 
     ref_cost_threshold = 20
 
+
 sigma1 = [0.1, 0.1, 0.1, 0.1]
 sigma2 = [0.1, 0.1, 0.1, 0.1]
 sigma3 = [0.1, 0.1, 0.1, 0.1]
@@ -93,7 +94,7 @@ robot6.set_uncertainty_params(sigma6)
 
 prob = 0.95
 # mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3, robot4, robot5, robot6], dt, HORIZON)
-mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3, robot4], dt, HORIZON, ref_cost_threshold, prob)
+mp_dynamics = MultiAgentDynamics([robot1, robot2, robot3], dt, HORIZON, ref_cost_threshold, prob)
 
 
 costs = mp_dynamics.define_costs_lists(uncertainty=True)
@@ -101,6 +102,8 @@ costs = mp_dynamics.define_costs_lists(uncertainty=True)
 x_traj = [[] for _ in range(mp_dynamics.num_agents)]
 y_traj = [[] for _ in range(mp_dynamics.num_agents)]
 headings = [[] for _ in range(mp_dynamics.num_agents)]
+vr = [[] for _ in range(mp_dynamics.num_agents)]
+vl = [[] for _ in range(mp_dynamics.num_agents)]
 
 ls = []
 Qs = []
@@ -385,6 +388,7 @@ except KeyboardInterrupt:
             x_traj[i].append(xs_real[i][ii][0])
             y_traj[i].append(xs_real[i][ii][1])
             headings[i].append(xs_real[i][ii][2])
+    vr, vl = mp_dynamics.compute_wheel_speeds(u1, u2)
     for ii in range(len(total_costs)):
         if type(total_costs[ii]) is list: 
             total_costs[ii] = sum(total_costs[ii])
@@ -401,6 +405,9 @@ for ii in range(mp_dynamics.TIMESTEPS):
         x_traj[i].append(xs_real[i][ii][0])
         y_traj[i].append(xs_real[i][ii][1])
         headings[i].append(xs_real[i][ii][2])
+
+vr, vl = mp_dynamics.compute_wheel_speeds(u1, u2)
+
     
 # plot costs
 plt.figure()
@@ -447,5 +454,27 @@ for i in range(mp_dynamics.num_agents):
 plt.xlabel('X')
 plt.ylabel('Y')
 plt.title('State Trajectories')
+plt.legend()
+plt.show()
+
+
+# plot wheel speeds in subplots
+plt.figure()
+plt.subplot(2,1,1)
+for i in range(mp_dynamics.num_agents):
+    plt.plot(vr[i], label=f'Robot {i}')
+plt.xlabel('Time Step')
+plt.ylabel('Right Wheel Speed')
+plt.title('Right Wheel Speeds')
+plt.legend()
+
+plt.subplots_adjust(hspace=0.5)
+
+plt.subplot(2,1,2)
+for i in range(mp_dynamics.num_agents):
+    plt.plot(vl[i], label=f'Robot {i}')
+plt.xlabel('Time Step')
+plt.ylabel('Left Wheel Speed')
+plt.title('Left Wheel Speeds')
 plt.legend()
 plt.show()

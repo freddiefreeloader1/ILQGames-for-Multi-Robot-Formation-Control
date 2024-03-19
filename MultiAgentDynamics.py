@@ -269,4 +269,13 @@ class MultiAgentDynamics():
                     else:   
                         xs[i][ii] = agent.runge_kutta_4_integration(xs[i][ii], u1, u2, self.dt, uncertainty)
         return xs, u_next
- 
+
+
+    def compute_wheel_speeds(self, w, v):
+        vr = np.zeros((self.num_agents, self.TIMESTEPS))
+        vl = np.zeros((self.num_agents, self.TIMESTEPS))
+        for i, agent in enumerate(self.agent_list):
+            for ii in range(self.TIMESTEPS):
+                vr[i][ii] = v[i][ii] + w[i][ii]*agent.WHEEL_BASE/2
+                vl[i][ii] = v[i][ii] - w[i][ii]*agent.WHEEL_BASE/2
+        return vr , vl

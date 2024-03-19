@@ -7,12 +7,13 @@ import matplotlib.animation as animation
 
 class UnicycleRobotUncertain:
 
-    def __init__(self, x0, xref, dt=0.1):
+    def __init__(self, x0, xref, dt=0.1, WHEEL_BASE=0.1):
         self.x0 = x0
         self.state = torch.tensor([x0[0], x0[1], x0[2], x0[3]], requires_grad=True)  # (x, y, theta, v)
         self.xref = xref
         self.dt = dt
         self.uncertainty_params = [0.1, 0.1, 0.1, 0.1] 
+        self.WHEEL_BASE = WHEEL_BASE
 
     def set_uncertainty_params(self, sigmas):
         self.uncertainty_params = sigmas
